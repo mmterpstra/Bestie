@@ -9,3 +9,7 @@ Ow boy
 ### How to install
 
 easy build the required modules or use wrapper module
+
+### planning
+
+- initial config according https://github.com/SarahBeecroft/slurmCromwellGATK4
