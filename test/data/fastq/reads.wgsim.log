@@ -1,0 +1,6 @@
+[wgsim] seed = 1662732918
+[wgsim_core] calculating the total length of the reference sequence...
+[wgsim_core] 1 sequences, total length: 4364
+chr8:127736594-127740958	516	G	R	+
+chr8:127736594-127740958	1163	A	M	+
+chr8:127736594-127740958	4158	C	M	+

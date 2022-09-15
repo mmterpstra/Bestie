@@ -1,0 +1,6 @@
+{
+  "fastqstatsWorkflow.mem_gb": "1",
+  "fastqstatsWorkflow.fastqc_mod": "FastQC/0.11.9-Java-11",
+  "fastqstatsWorkflow.fastq_input": "test/data/fastq/reads_R1.fq.gz"
+}
+
