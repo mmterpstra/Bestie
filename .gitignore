@@ -18,12 +18,13 @@ tags
 target
 /site
 
-# custom config
+# custom cromwell config
 cromwell-executions
 cromwell-test-executions
 cromwell-test-workflow-logs
 cromwell-workflow-logs
 local-cromwell-executions
+tests/runs
 log
 native
 scripts/docker-compose-mysql/compose/mysql/data
