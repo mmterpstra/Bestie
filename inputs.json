@@ -1,6 +1,22 @@
 {
-  "fastqstatsWorkflow.mem_gb": "1",
-  "fastqstatsWorkflow.fastqc_mod": "FastQC/0.11.9-Java-11",
-  "fastqstatsWorkflow.fastq_input": "test/data/fastq/reads_R1.fq.gz"
+  "fastqToVariants.sampleJson": "raw/fastq/samples.json",
+  "fastqToVariants.fastqcModule": "FastQC/0.11.9-Java-11",
+  "fastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
+  "fastqToVariants.multiqcModule": "multiqc/1.12-GCCcore-11.3.0",
+  "fastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-11.3.0",
+  "fastqToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
+  "fastqToVariants.referenceBwaIndex": {
+    "fastaFile": "ref/ref.fasta",
+    "ambFile": "ref/ref.fasta.amb",
+    "annFile": "ref/ref.fasta.ann",
+    "bwtFile": "ref/ref.fasta.bwt",
+    "pacFile": "ref/ref.fasta.pac",
+    "saFile": "ref/ref.fasta.sa" 
+  },
+  "fastqToVariants.reference": {
+    "fasta": "ref/ref.fasta",
+    "dict": "ref/ref.dict",
+    "fai": "ref/ref.fasta.fai"
+  }
 }
 
