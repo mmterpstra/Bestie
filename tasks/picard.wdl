@@ -108,5 +108,3 @@ task MarkDuplicates {
     }
 }
 
-#SPLIT_TO_N_READS
-#https://github.com/broadinstitute/warp/blob/develop/tasks/broad/Alignment.wdl#L128
