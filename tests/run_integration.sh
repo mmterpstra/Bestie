@@ -14,7 +14,6 @@
     ln -s $(pwd)/tests/data/ref $RUNROOT/ref
     ln -s $(pwd)/inputs_integration.json $RUNROOT/inputs.json
     #start workflow
-    set -x
     ml cromwell/56-Java-11 && \
     java -Dconfig.file=$WORKFLOWROOT/site/gearshift/cromwell.conf -jar $EBROOTCROMWELL/womtool.jar validate $WORKFLOWROOT/Bestie.wdl -i $RUNROOT/inputs.json 
     cd $RUNROOT

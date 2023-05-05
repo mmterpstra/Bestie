@@ -7,6 +7,10 @@ import "tasks/fastqc.wdl" as fastqc
 
 import "tasks/picard.wdl" as picard
 import "tasks/alignment.wdl" as align
+import "tasks/gatk.wdl" as gatk
+
+import "workflows/qc.wdl" as qc
+
 
 import "tasks/multiqc.wdl" as multiqc
 
@@ -18,8 +22,11 @@ workflow fastqToVariants {
         String multiqcModule = "multiqc/1.12-GCCcore-11.3.0"
         String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
+        String gatkModule = "GATK/4.2.4.1-Java-8-LTS"
         File sampleJson
         Reference reference
+        File targetIntervalList
+        Int targetScatter
         BwaIndex referenceBwaIndex
     }
 
@@ -102,5 +109,22 @@ workflow fastqToVariants {
                 outputBamBasename = sample.name + '_sort'
                 
         }
+
+        #optional bqsr
+        #optional indelrealignment
+
+        #run qc
+        call qc.bamQualityControl as bamQualityControl {
+        #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
+            input:
+                gatkModule = gatkModule,
+                picardModule = picardModule,
+                reference = reference,
+                inputBam = SortBam.bam,
+                inputBai = SortBam.bai,
+                outputPrefix =  sample.name + '_qc'
+        }
+        #haplotypecallergvcf
+        #genotypegvcf
     }
 }
