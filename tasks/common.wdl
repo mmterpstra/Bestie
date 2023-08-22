@@ -107,6 +107,7 @@ task CreateLink {
 
     runtime {
         memory: memory
+        timeMinutes: 10
     }
 }
 
@@ -129,6 +130,35 @@ task ConcatenateTextFiles {
 
     output {
         File combinedFile = combinedFilePath
+    }
+
+    runtime {
+        memory: memory
+    }
+}
+task ZipFiles {
+    input {
+        Array[File] fileList
+        Array[String] optionalFileList = ["test.txt"]
+        String outputPrefix
+        Int memory = 512
+    }
+
+    
+
+    command {
+        set -e -o pipefail
+        cat ~{write_lines(fileList)} > filelist.txt
+        (while read FILE; do 
+            if [ -e $FILE ]; then
+                echo "$FILE"
+            fi
+        done <  ~{write_lines(select_all(optionalFileList))}) >> ./filelist.txt
+        cat ~{sep=" " fileList}| zip ~{outputPrefix}.zip -@ 
+    }
+
+    output {
+        File zip = outputPrefix + ".zip"
     }
 
     runtime {

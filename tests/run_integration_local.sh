@@ -11,15 +11,17 @@
     RUNROOT='./tests/runs/'
     mkdir -p $RUNROOT/raw
     ln -s $(pwd)/tests/data/raw/fastq $RUNROOT/raw
-    ln -s $(pwd)/tests/data/ref $RUNROOT/ref
+    ln -s /groups/umcg-pmb/tmp01//apps/data $RUNROOT/data
     if [ -e $RUNROOT/inputs.json ] ; then
         rm -v $RUNROOT/inputs.json
     fi
-    ln -s $(pwd)/inputs_integration.json $RUNROOT/inputs.json
+    ln -s $(pwd)/inputs_integration_local.json $RUNROOT/inputs.json
     #start workflow
-    set -x
-    ml cromwell/56-Java-11 && \
+    ml cromwell/56-Java-11 
+    set -xe
     java -Xmx8g -Dconfig.file=$WORKFLOWROOT/site/gearshift/cromwell.conf -jar $EBROOTCROMWELL/womtool.jar validate $WORKFLOWROOT/Bestie.wdl -i $RUNROOT/inputs.json 
     cd $RUNROOT
-    java -Xmx8g -Dconfig.file=$WORKFLOWROOT/site/gearshift/cromwell.conf -jar $EBROOTCROMWELL/cromwell.jar run $WORKFLOWROOT/Bestie.wdl -i inputs.json --workflow-root $WORKFLOWROOT
+    nohup java -Xmx8g -Dconfig.file=$WORKFLOWROOT/site/gearshift/cromwell.conf -jar $EBROOTCROMWELL/cromwell.jar run $WORKFLOWROOT/Bestie.wdl -i inputs.json --workflow-root $WORKFLOWROOT
+
+    echo "tail -f $RUNROOT/nohup.out"
 )

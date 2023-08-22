@@ -48,7 +48,7 @@ struct BwaIndex {
     File pacFile
     File saFile
     #placeholder for optional alt stuff
-    File? altFiles
+    File? altFile
 }
 
 struct Reference {

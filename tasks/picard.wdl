@@ -13,7 +13,7 @@ task FastqToUnmappedBam {
         String readGroupName = "flowcell_run_barcode.lane"
         #String? platformModel = "NextSeq?"    
         String outputUnalignedBam = "unaligned_test.sam"
-        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 40
+        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 120
     }
     command {
         set -e
@@ -47,7 +47,8 @@ task SortSam {
         String picardModule = "picard"
         String outputBamBasename
         #String? platformModel = "NextSeq?"    
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = ceil(size(inputBam, "M")*1.1)
     }
     command {
         set -e
@@ -71,6 +72,7 @@ task SortSam {
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 }
 
@@ -81,7 +83,7 @@ task MarkDuplicates {
         String outputMetrics
         String picardModule = "picard"
         Int? memoryGb = "5"
-        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 40
+        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
@@ -100,6 +102,7 @@ task MarkDuplicates {
     
     output {
         File bam = outputBamBasename + ".bam"
+        File metrics = outputMetrics
     }
 
     runtime {
@@ -108,3 +111,52 @@ task MarkDuplicates {
     }
 }
 
+task SplitAndPadIntervals {
+    input {
+        File inputIntervalListFile
+        String outputPrefix
+        Int padding = 150
+        Int targetScatter = 50
+        String picardModule = "picard"
+        Int? memoryGb = "2"
+        Int timeMinutes = 1 + ceil(size(inputIntervalListFile, "G")) * 120
+    }
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        ml ~{picardModule}
+        #mkdir -p ~{outputPrefix}
+
+        java -Xmx4g -jar $EBROOTPICARD/picard.jar \
+        IntervalListTools \
+        INPUT="~{inputIntervalListFile}" \
+        OUTPUT="~{outputPrefix}.interval_list" \
+        PADDING=~{padding} \
+        SUBDIVISION_MODE=BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW \
+        UNIQUE=true \
+        COMMENT="Added padding of ~{padding} bp and merge overlapping and adjacent intervals to create a list of unique intervals PADDING=~{padding} UNIQUE=true"
+
+        mkdir -p ~{outputPrefix}_scatter
+        
+        java -Xmx4g -jar $EBROOTPICARD/picard.jar \
+        IntervalListTools \
+        INPUT="~{inputIntervalListFile}" \
+        OUTPUT="~{outputPrefix}_scatter" \
+        PADDING=~{padding} \
+        SCATTER_COUNT=~{targetScatter} \
+        SUBDIVISION_MODE=BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW \
+        UNIQUE=true \
+        COMMENT="Added padding of ~{padding} bp and merge overlapping and adjacent intervals to create a list of unique intervals PADDING=~{padding} UNIQUE=true"  
+    }
+    
+    output {
+        File paddedIntervalList = outputPrefix + ".interval_list"
+        #Array[File] =  outputPrefix + ".interval_list"
+        Array[File] paddedScatteredIntervalList = glob(outputPrefix + "_scatter/temp_*_of_"+ targetScatter +"/scattered.interval_list")
+        #Int interval_count = read_int(stdout())
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+    }
+}
