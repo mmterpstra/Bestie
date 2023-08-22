@@ -4,11 +4,11 @@ task MultiQC {
     input {
         #should be files or dirs
         Array[File] files
-        Array[String] optionalFiles
-        #Scales badly
-        Int? memoryGb = "4"
+        Array[File?] optionalFiles
+        #Scales badly might be a multiple of files
+        Int? memoryGb = 8
 	    String multiqcModule
-        Int timeMinutes = 50
+        Int timeMinutes = 120
     }
 
     command <<<
@@ -18,7 +18,7 @@ task MultiQC {
             if [ -e $FILE ]; then
                 echo "$FILE"
             fi
-        done <  ~{write_lines(optionalFiles)}) >> ./filelist.txt
+        done <  ~{write_lines(select_all(optionalFiles))}) >> ./filelist.txt
         module load ~{multiqcModule} && multiqc --force --file-list ./filelist.txt
     >>>
 

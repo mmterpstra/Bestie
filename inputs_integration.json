@@ -6,6 +6,8 @@
   "fastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-11.3.0",
   "fastqToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
   "fastqToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
+  "fastqToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
+  "fastqToVariants.hmmcopyutilsModule": "hmmcopy_utils/5911bf69f1-foss-2022a",
   "fastqToVariants.referenceBwaIndex": {
     "fastaFile": "ref/ref.fasta",
     "ambFile": "ref/ref.fasta.amb",
@@ -20,7 +22,5 @@
     "fai": "ref/ref.fasta.fai"
   },
   "fastqToVariants.targetIntervalList": "ref/targets.interval_list",
-  "fastqToVariants.targetScatter": 6
-
+  "fastqToVariants.targetScatter": 3
 }
-

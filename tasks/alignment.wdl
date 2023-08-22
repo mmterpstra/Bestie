@@ -12,7 +12,8 @@ task bwaAlignBam {
         BwaIndex referenceBwaIndex
         Reference reference
         String outputBam
-        Int timeMinutes = 1 + ceil(size(inputUnalignedBam, "G")) * 40
+        Int threads = 8
+        Int timeMinutes = 1 + ceil(size(inputUnalignedBam, "G")) * 120 + 20
     }
     command <<<
         set -o pipefail
@@ -26,7 +27,7 @@ task bwaAlignBam {
             NON_PF=true) | \
         (ml load ~{bwaModule} && \
             bwa mem -K 100000000 \
-            -p -v 3 -t 16 -Y \
+            -p -v 3 -t ~{threads - 1} -Y \
             ~{referenceBwaIndex.fastaFile} \
             /dev/stdin - 2> >(tee ./bwa.stderr.log >&2)) | \
         (ml load ~{picardModule} && \
@@ -52,7 +53,7 @@ task bwaAlignBam {
             PRIMARY_ALIGNMENT_STRATEGY=MostDistant \
             PROGRAM_RECORD_ID="bwamem" \
             PROGRAM_GROUP_VERSION="0.7.17-r1188" \
-            PROGRAM_GROUP_COMMAND_LINE="bwa mem -K 100000000 -p -v 3 -t 16 -Y" \
+            PROGRAM_GROUP_COMMAND_LINE="bwa mem -K 100000000 -p -v 3 -t ~{threads - 1} -Y" \
             PROGRAM_GROUP_NAME="bwamem" \
             UNMAPPED_READ_STRATEGY=COPY_TO_TAG \
             ALIGNER_PROPER_PAIR_FLAGS=true \
@@ -66,5 +67,7 @@ task bwaAlignBam {
     runtime {
         memory: select_first([memoryGb * 1024,1024])
         timeMinutes: timeMinutes
+        cpus: threads
+        #disk: 
     }
 }
