@@ -14,10 +14,12 @@ Creating fastq inputs and fasta reference for analysis
     wgsim tests/data/ref/ref.fasta tests/data/raw/fastq/reads_R1.fq tests/data/raw/fastq/reads_R2.fq \
         &>tests/data/raw/fastq/reads.wgsim.log
     gzip  tests/data/raw/fastq/reads_R1.fq tests/data/raw/fastq/reads_R2.fq)
-(mv tests/data/raw/fastq/reads_R1.fq.gz{,.bak}
+(
+    mv tests/data/raw/fastq/reads_R1.fq.gz{,.bak}
     mv tests/data/raw/fastq/reads_R2.fq.gz{,.bak};
-    zcat tests/data/raw/fastq/reads_R1.fq.gz.bak  | perl -wpe 'if($.%4==0){chomp;print "=" x length($_)."\n"; $_=""}' | gzip -c > tests/data/raw/fastq/reads_R1.fq.gz;
-    zcat tests/data/raw/fastq/reads_R2.fq.gz.bak  | perl -wpe 'if($.%4==0){chomp;print "=" x length($_)."\n"; $_=""}' | gzip -c > tests/data/raw/fastq/reads_R2.fq.gz)
+    #The complex dropoff to fool bqsr to accept the fastq. The single qual score aint fooling bqsr
+    zcat tests/data/raw/fastq/reads_R1.fq.gz.bak  | perl -wne 'if($.%4==0){chomp($_);my $new = "";for(my $i = 0; $i < length($_); $i++){$new .= chr(sprintf("%.0f", (33+10)+(40-10)*(1-$i*$i/(length($_)*length($_)))));};$_=$new."\n";};print $_' | gzip -c > tests/data/raw/fastq/reads_R1.fq.gz;
+    zcat tests/data/raw/fastq/reads_R2.fq.gz.bak  | perl -wne 'if($.%4==0){chomp($_);my $new = "";for(my $i = 0; $i < length($_); $i++){$new .= chr(sprintf("%.0f", (33+10)+(40-10)*(1-$i*$i/(length($_)*length($_)))));};$_=$new."\n";};print $_' | gzip -c > tests/data/raw/fastq/reads_R2.fq.gz)
 (ml SAMtools/1.16.1-GCCcore-11.3.0; samtools faidx tests/data/ref/ref.fasta)
 (ml GATK/4.2.4.1-Java-8-LTS; gatk CreateSequenceDictionary --REFERENCE tests/data/ref/ref.fasta )
 ```
@@ -67,4 +69,13 @@ Creating fastq inputs and fasta reference for analysis
         ADD_PG_TAG_TO_READS=false
 )
 
+
+### Create additional fastq with hom mutations 
+cat tests/data/ref/ref.fasta | \
+    python3 -c "import sys;visibility='';[sys.stdout.write( line if '>' in line else line[:700]+visibility+'ACCA'+visibility+line[700:1200]+visibility+'T'+visibility+line[1201:1500]+visibility+'DELT'[0:0]+visibility+line[1501:2500]+visibility+'G'+visibility+line[2501:3400]+visibility+'A'+visibility+line[3401:3700]+visibility+'C'+visibility+line[3701:]+'\n') for line in sys.stdin]" > tests/data/ref/alt.fasta 
+    ( ml wgsim/a12da33-foss-2018b; wgsim -1 151 -2 151 tests/data/ref/alt.fasta tests/data/raw/fastq/S2_reads_R1.fq tests/data/raw/fastq/S2_reads_R2.fq > tests/data/raw/fastq/S1_reads.wgsim.log )
+cat tests/data/raw/fastq/S2_reads_R1.fq | perl -wne 'if($.%4==0){chomp($_);my $new = "";for(my $i = 0; $i < length($_); $i++){$new .= chr(sprintf("%.0f", (33+10)+(40-10)*(1-$i*$i/(length($_)*length($_)))));};$_=$new."\n";};print $_' | \
+gzip -c > tests/data/raw/fastq/S2_reads_R1.fq.gz
+cat tests/data/raw/fastq/S2_reads_R2.fq | perl -wne 'if($.%4==0){chomp($_);my $new = "";for(my $i = 0; $i < length($_); $i++){$new .= chr(sprintf("%.0f", (33+10)+(40-10)*(1-$i*$i/(length($_)*length($_)))));};$_=$new."\n";};print $_' | \
+gzip -c > tests/data/raw/fastq/S2_reads_R2.fq.gz
 ```

@@ -1,20 +1,41 @@
-{"samples": [
-    {"name": "MySample",
-        "readgroups" : [
-            {"identifier": "S01",
-                "lane": "L001",
-                "barcode2": "TAAAAT",
-                "fastq1": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/raw/fastq/reads_R1.fq.gz",
-                "fastq2": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/raw/fastq/reads_R2.fq.gz",
-                "date": "20220916",
-                "barcode1": "ATTTTA",
-                "run": "001",
-                "platform_model" : "MiSeq",
-                "sequencer":"SM123",
-                "platform": "ILLUMINA",
-                "flowcell": "HXXXXXXXXXXXD",
-                "sequencing_center": "test"
-            }
-        ]
-    }]
+{"samples": 
+    [
+        {"name": "MySample",
+            "readgroups" : [
+                {"identifier": "S01",
+                    "lane": "L001",
+                    "barcode2": "TAAAAT",
+                    "fastq1": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/raw/fastq/S1_reads_R1.fq.gz",
+                    "fastq2": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/raw/fastq/S1_reads_R2.fq.gz",
+                    "date": "20220916",
+                    "barcode1": "ATTTTA",
+                    "run": "001",
+                    "platform_model" : "MiSeq",
+                    "sequencer":"SM123",
+                    "platform": "ILLUMINA",
+                    "flowcell": "HXXXXXXXXXXXD",
+                    "sequencing_center": "test data from wgsim"
+                }
+            ]
+        },
+        {"name": "MySampleTwo",
+            "runTwistUmi": true,
+            "readgroups" : [
+                {"identifier": "S01",
+                    "lane": "L001",
+                    "barcode2": "ATTTTA",
+                    "fastq1": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/raw/fastq/S2_reads_R1.fq.gz",
+                    "fastq2": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/raw/fastq/S2_reads_R2.fq.gz",
+                    "date": "20220916",
+                    "barcode1": "TAAAAT",
+                    "run": "001",
+                    "platform_model" : "MiSeq",
+                    "sequencer":"SM123",
+                    "platform": "ILLUMINA",
+                    "flowcell": "HXXXXXXXXXXXD",
+                    "sequencing_center": "test data from wgsim"            
+                }
+            ]
+        }
+    ]
 }

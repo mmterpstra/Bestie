@@ -12,6 +12,7 @@ wdl based hts-analysis for slurm cluster with enviroment modules.
 - [ ] Functional filtering of vcfs
 - [ ] Stability over > 10 samples
 - [ ] Rework dir structure to be more in line with warp/other public resources
+- [ ] End to end easybuild install
 
 Relevant example resources for writing wdl files :
 

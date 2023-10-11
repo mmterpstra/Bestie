@@ -10,6 +10,7 @@ task CollectMultipleMetrics {
         String gatkModule = "GATK"
         Int? memoryGb = "4"
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Boolean byReadGroup = false
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
@@ -17,7 +18,9 @@ task CollectMultipleMetrics {
         gatk --java-options "-Xmx3g -XX:ParallelGCThreads=1" CollectMultipleMetrics \
         --REFERENCE_SEQUENCE ~{reference.fasta} \
         --INPUT ~{inputBam} \
-        --OUTPUT ~{outputMetricsBasename}
+        --OUTPUT ~{outputMetricsBasename} \
+        ~{if byReadGroup then "--METRIC_ACCUMULATION_LEVEL READ_GROUP " else ""} 
+
     }
     
     output {
@@ -48,16 +51,20 @@ task CollectHsMetrics {
         String gatkModule = "GATK"
         Int? memoryGb = "4"
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Boolean byReadGroup = false
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         ml ~{gatkModule}
+
         gatk --java-options "-Xmx3g -XX:ParallelGCThreads=1" CollectHsMetrics \
         --REFERENCE_SEQUENCE "~{reference.fasta}" \
         --BAIT_INTERVALS "~{targetIntervalList}" \
         --TARGET_INTERVALS "~{targetIntervalList}" \
         --INPUT "~{inputBam}" \
-        --OUTPUT "~{outputMetricsBasename}.hs_metrics"
+        --OUTPUT "~{outputMetricsBasename}.hs_metrics" \
+        ~{if byReadGroup then "--METRIC_ACCUMULATION_LEVEL READ_GROUP " else ""} 
+
     }
     
     output {
@@ -74,35 +81,91 @@ task CollectHsMetrics {
 task BaseQualityScoreRecalibration {
     input {
         File inputBam
-        File targetIntervalList
-        String outputMetricsBasename
-        Reference reference
+        String outputRecalibrationReport
         String gatkModule = "GATK"
-        Int? memoryGb = "4"
+        #File targetIntervalList
+        #String outputMetricsBasename
+        Reference reference
+        IndexedFile dbsnp
+        Array [IndexedFile] knownSites
+        String gatkModule = "GATK"
+        Int? memoryGb = "6"
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        #rray [File] knownSitesVcfs = select_all(knownSites).file
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
-    command {
+    command <<<
         ml ~{gatkModule}
-        gatk --java-options "-Xmx3g -XX:ParallelGCThreads=1" BaseRecalibrator \
-        --REFERENCE_SEQUENCE "~{reference.fasta}" \
-        --BAIT_INTERVALS "~{targetIntervalList}" \
-        --TARGET_INTERVALS "~{targetIntervalList}" \
-        --INPUT "~{inputBam}" \
-        --OUTPUT "~{outputMetricsBasename}.hs_metrics"
-    }
+        KNOWNSITES=$(cat ~{write_objects(knownSites)}| \
+            cut -f 1 | \
+            tail -n+2)
+        gatk --java-options "-XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:+PrintFlagsFinal \
+            -XX:+PrintGCDetails \
+            -Xloggc:gc_log.log -Xms5000m -Xmx~{javaXmxMemoryMb}m" BaseRecalibrator \
+            --reference "~{reference.fasta}" \
+            --input "~{inputBam}" \
+            --use-original-qualities \
+            --output ~{outputRecalibrationReport} \
+            --known-sites ~{dbsnp.file} \
+            $(printf ' --known-sites %s ' $(printf '%s\n' ${KNOWNSITES[@]}))
+            #-L 
+    >>>
     
     output {
-        File hsMetrics = outputMetricsBasename + ".hs_metrics"
+        File recalibrationReport = outputRecalibrationReport
     }
 
     runtime {
-        memory: select_first([memoryGb * 1024,4*1024])
+        memory: select_first([memoryGb * 1024,6*1024])
         timeMinutes: timeMinutes
     }
 }
 
-task HaplotypeCaller {
+#gatherbsqr reports
+
+task ApplyBQSR {
+  input {
+    File inputBam
+    File inputBai
+    String gatkModule = "GATK"
+    String outputBamBasename
+    File recalibrationReport
+    Reference reference
+    Int? memoryGb = "4"
+    Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+    Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+  }
+  #Float referenceSize = size(reference.fasta, "GiB") + size(reference.dict, "GiB") + size(reference.fai, "GiB")
+  #Int DiskSize = ceil((size(inputBam, "GiB") * 3 ) + referenceSize) + 20
+  command {
+    ml ~{gatkModule}
+    gatk --java-options "-XX:+PrintFlagsFinal \
+        -XX:+PrintGCDetails -Xloggc:gc_log.log \
+        -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xms3000m -Xmx~{javaXmxMemoryMb}m" \
+        ApplyBQSR \
+        --create-output-bam-md5 \
+        --create-output-bam-index \
+        --add-output-sam-program-record \
+        -R ~{reference.fasta} \
+        -I ~{inputBam} \
+        --use-original-qualities \
+        -O ~{outputBamBasename}.bam \
+        -bqsr ~{recalibrationReport} 
+  }
+  runtime {
+    memory: memoryGb
+    timeMinutes: timeMinutes
+  }
+  output {
+    File bam = "~{outputBamBasename}.bam"
+    File bai = "~{outputBamBasename}.bai"
+
+    File bamChecksum = "~{outputBamBasename}.bam.md5"
+  }
+}
+
+task HaplotypeCallerGVcf {
     input {
         File inputBam
         File inputBai
@@ -127,23 +190,24 @@ task HaplotypeCaller {
 
         ml ~{gatkModule}
         gatk --java-options "-Xmx${javaMemoryGb}g -Xms${javaMemoryGb}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
-        HaplotypeCaller \
-        -R ~{reference.fasta} \
-        -I ~{inputBam} \
-        -L ~{targetIntervalList} \
-        -O "~{outputVcfBasename}~{vcfSuffix}" \
-        -contamination ~{default=0 contamination} \
-        -G StandardAnnotation -G StandardHCAnnotation ~{true="-G AS_StandardAnnotation" false="" makeGvcf} \
-        ~{false="--disable-spanning-event-genotyping" true="" useSpanningEventGenotyping} \
-        -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90 \
-        ~{true="-ERC GVCF" false="" makeGvcf} \
-        ~{bamoutArg}
+            HaplotypeCaller \
+            -R ~{reference.fasta} \
+            -I ~{inputBam} \
+            -L ~{targetIntervalList} \
+            -O "~{outputVcfBasename}~{vcfSuffix}" \
+            -contamination ~{default=0 contamination} \
+            -G StandardAnnotation -G StandardHCAnnotation ~{true="-G AS_StandardAnnotation" false="" makeGvcf} \
+            ~{false="--disable-spanning-event-genotyping" true="" useSpanningEventGenotyping} \
+            -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90 \
+            ~{true="-ERC GVCF" false="" makeGvcf} \
+            ~{bamoutArg}
 
         touch ~{outputVcfBasename}.bamout.bam
     }
     
     output {
-        File outVcf = outputVcfBasename + vcfSuffix
+        File vcf = outputVcfBasename + vcfSuffix
+        File vcfIdx = outputVcfBasename + vcfSuffix + ".idx"
     }
 
     runtime {
@@ -152,5 +216,28 @@ task HaplotypeCaller {
     }
 }
 
+#add genomicsdb import#
+
+task GenotypeGVcf {
+    input{
+        Array[File] inputGVcfs
+        Reference reference
+        String gatkModule = "GATK"
+        Int memoryGb = "4"
+        Int javaMemoryGb = memoryGb - 1
+        Int timeMinutes = 1 + ceil(size(inputGVcfs, "G")) * 120
+
+      }
+    command <<<
+        ml ~{gatkModule}
+      
+
+    >>>
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+    }
+
+}
 #SPLIT_TO_N_READS
 #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/Alignment.wdl#L128

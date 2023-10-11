@@ -13,12 +13,23 @@ task MultiQC {
 
     command <<<
         set -e
-        cat ~{write_lines(files)} > filelist.txt
-        (while read FILE; do 
-            if [ -e $FILE ]; then
-                echo "$FILE"
-            fi
-        done <  ~{write_lines(select_all(optionalFiles))}) >> ./filelist.txt
+        #cat ~{write_lines(files)} > filelist.txt
+        #test the optional files , unzip if needed and add to filelist 
+        #This is due to multiqc not handling zip archives
+        #https://github.com/ewels/MultiQC/blob/f4878540c0b1e77fa419b589ec33f3a5039d17da/multiqc/modules/picard/HsMetrics.py#L92-L96 it looks at the bam "basename" cleaned up to determine witch sample it is derived from.
+        #this skips localisation of optional files so wip
+        cat ~{write_lines(select_all(optionalFiles))} ~{write_lines(files)} | \
+            (while read FILE; do 
+                if [ -e "$FILE" ]; then
+                    if [[ $FILE == *.zip ]]; then
+                        mkdir -p "./unzip/$(basename $FILE .zip)"
+                        ( cd "./unzip/$(basename $FILE .zip)" && unzip "$FILE" &>>./unzip.log)
+                        find "./unzip/$(basename $FILE .zip)" -type f
+                    else
+                        echo "$FILE"
+                    fi 
+                fi
+        done ) > ./filelist.txt
         module load ~{multiqcModule} && multiqc --force --file-list ./filelist.txt
     >>>
 

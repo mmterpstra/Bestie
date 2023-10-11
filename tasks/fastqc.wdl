@@ -51,3 +51,33 @@ task FastQCSample {
         timeMinutes: timeMinutes
     }
 }
+
+task FastQCPaired {
+    input {
+        File inputFastq
+        File? inputFastq2
+        Int? memoryGb = "1"
+	    String fastqcModule
+        Int timeMinutes = 1 + ceil(size(inputFastq, "G")) * 20
+        String outputFastqcBasename = "sample_fastqc"
+    }
+
+    command {
+        set -e
+        module load ~{fastqcModule}
+        mkdir -p ~{outputFastqcBasename}/
+        fastqc -o ~{outputFastqcBasename} ~{inputFastq} ~{inputFastq2}
+        zip -ru ~{outputFastqcBasename}.zip ~{outputFastqcBasename}
+    }
+
+    output {
+        #String fastqcDir =  basename(inputFastq, ".fastq.gz")
+        #ile out_html1 = basename(inputFastq1, ".fastq.gz") + "_fastqc.html"
+        File zip = outputFastqcBasename + ".zip"
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,1024])
+        timeMinutes: timeMinutes
+    }
+}

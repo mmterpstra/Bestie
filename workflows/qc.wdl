@@ -14,13 +14,16 @@ workflow bamQualityControl {
         String outputPrefix
         Reference reference
         File? targetIntervalList
+        Boolean byReadGroup = false
+        Boolean flattenArchive = true
     }
     call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
         input:
             gatkModule = gatkModule,
             reference = reference,
             inputBam = inputBam,
-            outputMetricsBasename = outputPrefix + "_multiplemetrics"
+            outputMetricsBasename = outputPrefix + "_multiplemetrics",
+            byReadGroup = byReadGroup
     }
     if(defined(targetIntervalList)) {
         call gatk.CollectHsMetrics as CollectHsMetrics {
@@ -29,7 +32,9 @@ workflow bamQualityControl {
                 reference = reference,
                 targetIntervalList = select_first([targetIntervalList]),
                 inputBam = inputBam,
-                outputMetricsBasename = outputPrefix
+                outputMetricsBasename = outputPrefix,
+                byReadGroup = byReadGroup
+
         }
     }
     call common.ZipFiles as CreateQcZip {
@@ -46,20 +51,21 @@ workflow bamQualityControl {
                     CollectMultipleMetrics.readLengthPdf
                 ],
             optionalFileList = [select_first([CollectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"])],
-            outputPrefix = outputPrefix + "_qc"
+            outputPrefix = outputPrefix,
+            flattenArchive = flattenArchive
     }
     output {
-        File alignmentMetrics = CollectMultipleMetrics.alignmentMetrics
-        File baseDistributionMetrics = CollectMultipleMetrics.baseDistributionMetrics
-        File baseDistributionPdf = CollectMultipleMetrics.baseDistributionPdf
-        File insertSizeMetrics = CollectMultipleMetrics.insertSizeMetrics
-        File insertSizePdf = CollectMultipleMetrics.insertSizePdf
-        File qualityByCycleMetrics = CollectMultipleMetrics.qualityByCycleMetrics
-        File qualityByCyclePdf = CollectMultipleMetrics.qualityByCyclePdf
-        File qualityDistributionMetrics = CollectMultipleMetrics.qualityDistributionMetrics
-        File qualityDistributionPdf = CollectMultipleMetrics.qualityDistributionPdf
-        File readLengthPdf = CollectMultipleMetrics.readLengthPdf
-        File? hsMetrics = select_first([CollectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"])
+        #File alignmentMetrics = CollectMultipleMetrics.alignmentMetrics
+        #File baseDistributionMetrics = CollectMultipleMetrics.baseDistributionMetrics
+        #File baseDistributionPdf = CollectMultipleMetrics.baseDistributionPdf
+        #File insertSizeMetrics = CollectMultipleMetrics.insertSizeMetrics
+        #File insertSizePdf = CollectMultipleMetrics.insertSizePdf
+        #File qualityByCycleMetrics = CollectMultipleMetrics.qualityByCycleMetrics
+        #File qualityByCyclePdf = CollectMultipleMetrics.qualityByCyclePdf
+        #File qualityDistributionMetrics = CollectMultipleMetrics.qualityDistributionMetrics
+        #File qualityDistributionPdf = CollectMultipleMetrics.qualityDistributionPdf
+        #File readLengthPdf = CollectMultipleMetrics.readLengthPdf
+        #File? hsMetrics = select_first([CollectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"])
         File qcZip = CreateQcZip.zip
     }
 }
