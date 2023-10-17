@@ -142,19 +142,32 @@ task ZipFiles {
         Array[String] optionalFileList = ["test.txt"]
         String outputPrefix
         Int memory = 512
+        Boolean flattenArchive = true
     }
-
     
+    #WIP: does not localise optional files...
 
     command {
         set -e -o pipefail
-        cat ~{write_lines(fileList)} > filelist.txt
-        (while read FILE; do 
+        cat ~{write_lines(fileList)} ~{write_lines(select_all(optionalFileList))} | 
+        ( while read FILE; do 
             if [ -e $FILE ]; then
                 echo "$FILE"
             fi
-        done <  ~{write_lines(select_all(optionalFileList))}) >> ./filelist.txt
-        cat ~{sep=" " fileList}| zip ~{outputPrefix}.zip -@ 
+        done ) > ./filelist.txt
+
+        pwd
+        #try find cromwell execution dir and execute from there
+        EXECUTION_DIR=$(head -n 1 ./filelist.txt | \
+        python3 -c "import sys;[sys.stdout.write( line[:(line.find('/cromwell-executions/')+21)]+'\n') for line in sys.stdin]" )
+        OUTDIR=$PWD
+
+        #zip command
+        cat ./filelist.txt | \
+            python3 -c "import sys;[sys.stdout.write( line[(line.find('/cromwell-executions/')+21):]+'\n') for line in sys.stdin]" | \
+            (cd $EXECUTION_DIR && \
+                zip ~{if flattenArchive then "-j " else ""}  $OUTDIR/~{outputPrefix}.zip -@
+            )
     }
 
     output {

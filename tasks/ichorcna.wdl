@@ -1,5 +1,7 @@
 version 1.0
 
+import "../structs.wdl"
+
 #ichorCNA related tasks
 
 task SizeselectLessOrEqual150 {
@@ -31,30 +33,46 @@ task SizeselectLessOrEqual150 {
 task hmmcopyReadcounter {
     input {
         File inputBam
+        File inputBai
         String outputPrefix
         String hmmcopyutilsModule = "hmmcopy_utils"
         String samtoolsModule = "SAMtools"
-        String chromosomes = "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
+        File referencefai
+
+        #String chromosomes = "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
         Int windowkilobase = 500
         Int? memoryGb = "1"
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = 1 + ceil(size(inputBam, "G")*2.1)
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         set -e
+        set -o pipefail
+        #this part filters out the secondary and supplemental alignments and gives a samtools style index(.bam.bai) cuz the tool wont handle picard style (.bai) ...
         (
+            echo "filtering"
             ml ~{samtoolsModule}
-
-            samtools index ~{inputBam}
+            samtools view \
+                -h -b \
+                --exclude-flags 256 \
+                --exclude-flags 2048 \
+                ~{inputBam} \
+            >  ~{outputPrefix}"_filtered.bam"
+            samtools index ~{outputPrefix}"_filtered.bam"
         )
         (
             ml ~{hmmcopyutilsModule}
 
+            #ichorCNA is optimised for human (n chromosomes = 23 plus y chromosome) so this should be fine 
+            CHROMOSOMES=$(head -n 24 "~{referencefai}" | \
+                cut -f 1 |\
+                python3 -c "import sys;chrs = [];[ chrs.append(line.rstrip())  for count,line in enumerate(sys.stdin)]; print(','.join(chrs))")
             readCounter \
             --window ~{windowkilobase}000 \
             --quality 20 \
-            --chromosome "~{chromosomes}" \
-            ~{inputBam} > "~{outputPrefix}"".""~{windowkilobase}""kb.wig"
+            --chromosome "$CHROMOSOMES" \
+            ~{outputPrefix}"_filtered.bam" > "~{outputPrefix}"".""~{windowkilobase}""kb.wig" 2>/dev/null
         )
     }
     

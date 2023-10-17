@@ -3,16 +3,16 @@ version 1.0
 import "structs.wdl" as structs
 import "tasks/common.wdl" as common
 import "tasks/trimgalore.wdl" as trimgalore
+import "tasks/cutadapt.wdl" as cutadapt
 import "tasks/fastqc.wdl" as fastqc
-
 import "tasks/picard.wdl" as picard
+import "tasks/fgbio.wdl" as fgbio
 import "tasks/alignment.wdl" as align
 import "tasks/gatk.wdl" as gatk
-
-#import "tasks/ichorcna.wdl" as ichorcna
+import "tasks/ichorcna.wdl" as ichorcna
 
 import "workflows/qc.wdl" as qc
-
+import "workflows/fastqToBam.wdl" as fastqToBam
 
 import "tasks/multiqc.wdl" as multiqc
 
@@ -25,18 +25,26 @@ workflow fastqToVariants {
         String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
         String gatkModule = "GATK/4.2.4.1-Java-8-LTS"
-        String multiqcModule = "multiqc/1.12-GCCcore-11.3.0"
         String hmmcopyutilsModule = "hmmcopy_utils/5911bf69f1-foss-2022a"
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
+        String fgbioModule = "fgbio/1.3.0"
+        Boolean runCutadapt = false 
+        String cutadaptModule = "fgbio/1.3.0"
+        Array[String] read1Adapters = ["AGATCGGAAGAGC"]
+        Array[String] read2Adapters = ["AGATCGGAAGAGC"]
+        Boolean runTwistUmi = false
         Boolean runReadcounter = true
+        Boolean runBaseQualityRecalibration = true
         File sampleJson
         Reference reference
+        IndexedFile dbsnp
+        Array[IndexedFile] knownSites
         File targetIntervalList
         Int targetScatter
         BwaIndex referenceBwaIndex
-        #Array[File] = knownIndelsVcfs
     }
     SampleConfig sampleConfig = read_json(sampleJson)
+
 
     call picard.SplitAndPadIntervals as splitIntervals {
     input:
@@ -46,134 +54,61 @@ workflow fastqToVariants {
         targetScatter = targetScatter,
         padding = 200
     }
-
     scatter (sample in sampleConfig.samples) {
-
-        scatter (rg in sample.readgroups) {
-            #linking for uniform filenames
-            call common.CreateLink as getfastq1 {
+        call fastqToBam.FastqToBam as fqToBam {
             input:
-                inputFile = rg.fastq1,
-                outputPath = sample.name + "_" + rg.flowcell + "_" + rg.identifier + "_R1.fastq.gz"
-            }
-            call fastqc.FastQC as fastqc1 {
-            input:
-                inputFastq = getfastq1.link,
-                fastqcModule = fastqcModule
-            }
-            if (defined(rg.fastq2)) {
-                call common.CreateLink as getfastq2 {
-                input:
-                    inputFile = select_first([rg.fastq2]),
-                    outputPath = sample.name + "_" + rg.flowcell + "_" + rg.identifier + "_R2.fastq.gz"
-                }
-                call fastqc.FastQC as fastqc2 {
-                input:
-                    inputFastq = getfastq2.link,
-                    fastqcModule = fastqcModule
-                }
-
-            }
-            #trim adapters
-            call trimgalore.TrimGalore as adaptertrim {
-                input:
-                    inputFastq1 = getfastq1.link,
-                    inputFastq2 = getfastq2.link,
-                    outputFastq1 = sample.name + "_" + rg.identifier + "_trim_R1.fastq.gz",
-                    outputFastq2 = sample.name + "_" + rg.identifier + "_trim_R2.fastq.gz",
-                    memoryGb = 1,
-                    trimgaloreModule = trimgaloreModule
-            }
-            
-            #align
-            ##to samconversion
-            call picard.FastqToUnmappedBam as fastqToBam {
-                input:
-                    inputFastq1 = adaptertrim.fastq1,
-                    inputFastq2 = adaptertrim.fastq2,
-                    picardModule = picardModule,
-                    sampleName = sample.name, 
-                    platform = rg.platform,
-                    platformUnit = rg.run  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
-                    readGroupName = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
-                    outputUnalignedBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned.bam",
-            }
-            ##map with bwa
-            call align.bwaAlignBam as bwaBam {
-                input:
-                    inputUnalignedBam = fastqToBam.unalignedBam,
-                    referenceBwaIndex = referenceBwaIndex,
-                    reference = reference,
-                    bwaModule = bwaModule,
-                    picardModule = picardModule,
-                    outputBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_aligned.bam",
-            }
-        }
-
-        call fastqc.FastQCSample as fastqcSample1 {
-            input:
+                sample = sample,
                 fastqcModule = fastqcModule,
-                inputFastqGzs = getfastq1.link,
-                outputPrefix = sample.name + "_R1",
-        }
-        if (defined(getfastq2.link)) {
-            call fastqc.FastQCSample as fastqcSample2 {
-            input:
-                fastqcModule = fastqcModule,
-                inputFastqGzs = select_all(getfastq2.link),
-                outputPrefix = sample.name + "_R2",
-            }
-        }
-
-        call picard.MarkDuplicates as markDups {
-            input:
+                trimgaloreModule = trimgaloreModule,
+                bwaModule = bwaModule,
                 picardModule = picardModule,
-                inputBams = bwaBam.alignedBam,
-                outputBamBasename = sample.name + '_markdup',
-                outputMetrics = sample.name + '.markdup_metrics'
-
-        }
-        call picard.SortSam as sortBam {
-            input: 
-                picardModule = picardModule,
-                inputBam = markDups.bam,
-                outputBamBasename = sample.name + '_sort'
-                
-        }
-        #if(runReadcounter){
-        #    call ichorcna.hmmcopyReadcounter as readcounter {
-        #        input:
-        #            inputBam=sortBam.bam,
-        #            outputPrefix=sample.name,
-        #            windowkilobase=500,
-        #            hmmcopyutilsModule=hmmcopyutilsModule,
-        #            samtoolsModule=samtoolsModule
-        #    }
-        #}
-        #optional bqsr
-        #optional indelrealignment
-
-        #run qc
-        call qc.bamQualityControl as bamQualityControl {
-        #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
-            input:
                 gatkModule = gatkModule,
-                picardModule = picardModule,
+                samtoolsModule = samtoolsModule,
+                fgbioModule = fgbioModule,
+                runCutadapt = runCutadapt,
+                cutadaptModule = cutadaptModule,
+                read1Adapters = read1Adapters,
+                read2Adapters = read2Adapters,
+                runBaseQualityRecalibration = runBaseQualityRecalibration,
                 reference = reference,
-                inputBam = sortBam.bam,
-                inputBai = sortBam.bai,
-                outputPrefix =  sample.name + '_qc',
+                referenceBwaIndex = referenceBwaIndex,
+                runCutadapt = runCutadapt,
+                dbsnp = dbsnp,
+                knownSites = knownSites,
                 targetIntervalList = targetIntervalList
         }
+        if(runReadcounter){
+            call ichorcna.hmmcopyReadcounter as readcounter500kbp {
+                input:
+                    inputBam=fqToBam.bam.file,
+                    inputBai=fqToBam.bam.index,
+                    outputPrefix=sample.name,
+                    windowkilobase=500,
+                    referencefai=reference.fai,
+                    hmmcopyutilsModule=hmmcopyutilsModule,
+                    samtoolsModule=samtoolsModule
+            }
+            call ichorcna.hmmcopyReadcounter as readcounter1000kbp {
+                input:
+                    inputBam=fqToBam.bam.file,
+                    inputBai=fqToBam.bam.index,
+                    outputPrefix=sample.name,
+                    windowkilobase=1000,
+                    referencefai=reference.fai,
+                    hmmcopyutilsModule=hmmcopyutilsModule,
+                    samtoolsModule=samtoolsModule
+            }
+        }
+        
+        #variant callin to sub pipeline
         #scatter by sequencing targets intervals
         scatter (scatteredtargetsIdx in range(length(splitIntervals.paddedScatteredIntervalList))) {
             #haplotypecallergvcf
-            call gatk.HaplotypeCaller as haplotypeCallerGvcf {
+            call gatk.HaplotypeCallerGVcf as haplotypeCallerGvcf {
                 input:
                     gatkModule = gatkModule,
                     reference = reference,
-                    inputBam = sortBam.bam,
-                    inputBai = sortBam.bai,
+                    inputBam = fqToBam.bam,
                     outputVcfBasename = sample.name + ".idx_" + scatteredtargetsIdx,
                     targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx]
             }
@@ -190,20 +125,10 @@ workflow fastqToVariants {
     Array[File] files = flatten(
         flatten(
             [
-                fastqc1.outZip,adaptertrim.fastq1Log,
+                fqToBam.fastqcZip,
                 [
-                    markDups.metrics,
-                    bamQualityControl.alignmentMetrics,
-                    bamQualityControl.baseDistributionMetrics,
-                    bamQualityControl.baseDistributionPdf,
-                    bamQualityControl.insertSizeMetrics,
-                    bamQualityControl.insertSizePdf,
-                    bamQualityControl.qualityByCycleMetrics,
-                    bamQualityControl.qualityByCyclePdf,
-                    bamQualityControl.qualityDistributionMetrics,
-                    bamQualityControl.qualityDistributionPdf,
-                    bamQualityControl.readLengthPdf,
-                    fastqcSample1.outZip
+                    fqToBam.markdupLog,
+                    fqToBam.qcZip,
                 ]
             ]
         )
@@ -213,8 +138,6 @@ workflow fastqToVariants {
             input:
                 multiqcModule = multiqcModule,
                 files = files,
-                optionalFiles = select_all(flatten(flatten([fastqc2.outZip,[fastqcSample2.outZip, bamQualityControl.hsMetrics]])))
-    }
-    
-    
+                optionalFiles = select_all(flatten(flatten([fqToBam.cutadaptLogs,[fqToBam.umiQcZip]])))
+    }   
 }

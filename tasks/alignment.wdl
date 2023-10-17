@@ -7,13 +7,16 @@ task bwaAlignBam {
     input {
         File inputUnalignedBam
         Int? memoryGb = "12"
+        #mainly ~4g mergeBamAlignment memory for sorting and ~8 for bwa...
+        Int javaMemoryMb = ceil((memoryGb-8) * 1024 * 0.85)
 	    String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
         BwaIndex referenceBwaIndex
         Reference reference
-        String outputBam
+        String outputBamBasename
         Int threads = 8
         Int timeMinutes = 1 + ceil(size(inputUnalignedBam, "G")) * 120 + 20
+        Boolean coordinateSort = false
     }
     command <<<
         set -o pipefail
@@ -31,7 +34,7 @@ task bwaAlignBam {
             ~{referenceBwaIndex.fastaFile} \
             /dev/stdin - 2> >(tee ./bwa.stderr.log >&2)) | \
         (ml load ~{picardModule} && \
-            java -Dsamjdk.compression_level=1 -Xms1000m -Xmx1000m -jar $EBROOTPICARD/picard.jar \
+            java -Dsamjdk.compression_level=1 -Xms1000m -Xmx~{javaMemoryMb}m -jar $EBROOTPICARD/picard.jar \
             MergeBamAlignment \
             VALIDATION_STRINGENCY=SILENT \
             EXPECTED_ORIENTATIONS=FR \
@@ -40,9 +43,9 @@ task bwaAlignBam {
             ATTRIBUTES_TO_REMOVE=MD \
             ALIGNED_BAM=/dev/stdin \
             UNMAPPED_BAM=~{inputUnalignedBam} \
-            OUTPUT=~{outputBam} \
+            OUTPUT=~{outputBamBasename}.bam \
             REFERENCE_SEQUENCE=~{reference.fasta} \
-            SORT_ORDER="unsorted" \
+            SORT_ORDER=~{if coordinateSort then "\"coordinate\"" else "\"unsorted\""} \
             IS_BISULFITE_SEQUENCE=false \
             ALIGNED_READS_ONLY=false \
             CLIP_ADAPTERS=false \
@@ -57,11 +60,14 @@ task bwaAlignBam {
             PROGRAM_GROUP_NAME="bwamem" \
             UNMAPPED_READ_STRATEGY=COPY_TO_TAG \
             ALIGNER_PROPER_PAIR_FLAGS=true \
-            ADD_PG_TAG_TO_READS=false)
+            ADD_PG_TAG_TO_READS=false \
+            ~{if coordinateSort then "CREATE_INDEX=true" else ""}
+            )
     >>>
 
     output {
-        File alignedBam = outputBam
+        File bam = outputBamBasename + ".bam"
+        File? bai = outputBamBasename + ".bai"
     }
 
     runtime {

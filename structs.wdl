@@ -32,6 +32,8 @@ struct SampleDescriptor {
     String? threeLetterName
     String? control
     String? gender
+    Boolean? runTwistUmi
+
     Array[ReadGroup] readgroups
 }
 
@@ -55,4 +57,9 @@ struct Reference {
     File fasta
     File dict
     File fai
+}
+
+struct IndexedFile {
+    File file
+    File index
 }

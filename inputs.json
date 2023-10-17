@@ -1,26 +1,47 @@
 {
-  "fastqToVariants.sampleJson": "raw/fastq/samples.json",
+  "fastqToVariants.sampleJson": "/groups/umcg-pmb/tmp01/projects/hematopathology/Lymphoma/20230601_GenomeScan_105690/20230601_GenomeScan_105690_10589.json",
   "fastqToVariants.fastqcModule": "FastQC/0.11.9-Java-11",
   "fastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
   "fastqToVariants.multiqcModule": "multiqc/1.12-GCCcore-11.3.0",
   "fastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-11.3.0",
   "fastqToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
   "fastqToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
+  "fastqToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
+  "fastqToVariants.hmmcopyutilsModule": "hmmcopy_utils/5911bf69f1-foss-2022a",
   "fastqToVariants.referenceBwaIndex": {
-    "fastaFile": "ref/ref.fasta",
-    "ambFile": "ref/ref.fasta.amb",
-    "annFile": "ref/ref.fasta.ann",
-    "bwtFile": "ref/ref.fasta.bwt",
-    "pacFile": "ref/ref.fasta.pac",
-    "saFile": "ref/ref.fasta.sa" 
+    "fastaFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta",
+    "ambFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.amb",
+    "annFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.ann",
+    "bwtFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.bwt",
+    "pacFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.pac",
+    "saFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.sa",
+    "altFile":"./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.alt"
   },
   "fastqToVariants.reference": {
-    "fasta": "ref/ref.fasta",
-    "dict": "ref/ref.dict",
-    "fai": "ref/ref.fasta.fai"
+    "fasta": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta",
+    "dict": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.dict",
+    "fai": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.fai"
   },
-  "fastqToVariants.targetIntervalList": "ref/targets.interval_list",
-  "fastqToVariants.targetScatter": 6
-
+  "fastqToVariants.targetIntervalList": "./data/interval_lists/hg38/S31285117_SureSelectV7_Regions_hg38.interval_list",
+  "fastqToVariants.targetScatter": 3,
+  "fastqToVariants.runCutadapt": false,
+  "fastqToVariants.read1Adapters": ["AGATCGGAAGAGC"],
+  "fastqToVariants.read2Adapters": ["AGATCGGAAGAGC"],
+  "fastqToVariants.dbsnp": {
+    "file" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
+    "index" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz.tbi" 
+  },
+  "fastqToVariants.knownSites": 
+    [
+      {
+        "file": "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.known_indels.vcf.gz",
+        "index": "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.known_indels.vcf.gz.tbi"
+      },
+      {
+        "file": "./data/gcp-public-data--broad-references/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.gz",
+        "index": "./data/gcp-public-data--broad-references/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.gz.tbi"
+      }
+      
+    ]
 }
 

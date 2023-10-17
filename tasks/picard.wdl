@@ -4,7 +4,7 @@ task FastqToUnmappedBam {
     input {
         File inputFastq1
         File? inputFastq2
-        Int? memoryGb = "16"
+        Int? memoryGb = "2"
         String picardModule = "picard"
         String sampleName = "test"
         String readgroup = "A"
@@ -40,6 +40,35 @@ task FastqToUnmappedBam {
     }
 }
 
+task SamToFastq {
+    input{
+        File inputBam
+        String outputFastqDirBase
+        Int? memoryGb = "2"
+        String picardModule = "picard"
+        Int disk = ceil(size(inputBam, "M")*2.1)
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 60
+    }
+    command {
+        set -e
+        module load ~{picardModule} && \
+        java -Xmx1g \
+            -jar $EBROOTPICARD/picard.jar FastqToSam \
+            INPUT=~{inputBam} \
+            OUTPUT_PER_RG=true \
+            OUTPUTDIR=~{outputFastqDirBase}
+    }
+    output {
+        File fastq1gz = select_first(glob(outputFastqDirBase + "/*R1.fastq.gz"))
+        File? fastq2gz = select_first(glob(outputFastqDirBase + "/*R2.fastq.gz"))
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+
 task SortSam {
     input {
         File inputBam
@@ -48,7 +77,7 @@ task SortSam {
         String outputBamBasename
         #String? platformModel = "NextSeq?"    
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
-        Int disk = ceil(size(inputBam, "M")*1.1)
+        Int disk = ceil(size(inputBam, "M")*2.1)
     }
     command {
         set -e
@@ -111,6 +140,40 @@ task MarkDuplicates {
     }
 }
 
+task MergeSamFiles {
+    input {
+        Array[File] inputBams
+        String outputBamBasename
+        String picardModule = "picard"
+        Int? memoryGb = "5"
+        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
+        Int disk = 1 + ceil(size(inputBams, "G") * 2.1)
+    }
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        ml ~{picardModule}
+        java -Xmx4g -XX:ParallelGCThreads=4 -jar $EBROOTPICARD/picard.jar MergeSamFiles \
+            INPUT=~{sep=' INPUT=' inputBams} \
+            SORT_ORDER=coordinate \
+            CREATE_INDEX=true \
+            USE_THREADING=true \
+            TMP_DIR=./ \
+            MAX_RECORDS_IN_RAM=6000000 \
+            OUTPUT=${outputBamBasename}.bam
+    }
+    
+    output {
+        File bam = outputBamBasename + ".bam"
+        File bai = outputBamBasename + ".bai"
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+
 task SplitAndPadIntervals {
     input {
         File inputIntervalListFile
@@ -118,7 +181,7 @@ task SplitAndPadIntervals {
         Int padding = 150
         Int targetScatter = 50
         String picardModule = "picard"
-        Int? memoryGb = "2"
+        Int? memoryGb = "4"
         Int timeMinutes = 1 + ceil(size(inputIntervalListFile, "G")) * 120
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
