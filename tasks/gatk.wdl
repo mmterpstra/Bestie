@@ -9,13 +9,15 @@ task CollectMultipleMetrics {
         Reference reference
         String gatkModule = "GATK"
         Int? memoryGb = "4"
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = ceil(size(inputBam, "M")*1.1)
         Boolean byReadGroup = false
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         ml ~{gatkModule}
-        gatk --java-options "-Xmx3g -XX:ParallelGCThreads=1" CollectMultipleMetrics \
+        gatk --java-options "-Xmx~{javaXmxMemoryMb}m -XX:ParallelGCThreads=1" CollectMultipleMetrics \
         --REFERENCE_SEQUENCE ~{reference.fasta} \
         --INPUT ~{inputBam} \
         --OUTPUT ~{outputMetricsBasename} \
@@ -50,14 +52,16 @@ task CollectHsMetrics {
         Reference reference
         String gatkModule = "GATK"
         Int? memoryGb = "4"
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = ceil(size(inputBam, "M")*2.1)
         Boolean byReadGroup = false
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         ml ~{gatkModule}
 
-        gatk --java-options "-Xmx3g -XX:ParallelGCThreads=1" CollectHsMetrics \
+        gatk --java-options "-Xmx~{javaXmxMemoryMb}m -XX:ParallelGCThreads=1" CollectHsMetrics \
         --REFERENCE_SEQUENCE "~{reference.fasta}" \
         --BAIT_INTERVALS "~{targetIntervalList}" \
         --TARGET_INTERVALS "~{targetIntervalList}" \
@@ -91,6 +95,7 @@ task BaseQualityScoreRecalibration {
         String gatkModule = "GATK"
         Int? memoryGb = "6"
         Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(inputBam, "M")*1.1)
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
         #rray [File] knownSitesVcfs = select_all(knownSites).file
     }
@@ -109,7 +114,8 @@ task BaseQualityScoreRecalibration {
             --output ~{outputRecalibrationReport} \
             --known-sites ~{dbsnp.file} \
             $(printf ' --known-sites %s ' $(printf '%s\n' ${KNOWNSITES[@]}))
-            #-L 
+            
+            #-L Interval list separated format
     >>>
     
     output {
@@ -135,6 +141,7 @@ task ApplyBQSR {
     Int? memoryGb = "4"
     Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
     Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+    Int disk = ceil(size(inputBam, "M")*2.6)
   }
   #Float referenceSize = size(reference.fasta, "GiB") + size(reference.dict, "GiB") + size(reference.fai, "GiB")
   #Int DiskSize = ceil((size(inputBam, "GiB") * 3 ) + referenceSize) + 20
@@ -144,8 +151,8 @@ task ApplyBQSR {
         -XX:+PrintGCDetails -Xloggc:gc_log.log \
         -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xms3000m -Xmx~{javaXmxMemoryMb}m" \
         ApplyBQSR \
-        --create-output-bam-md5 \
-        --create-output-bam-index \
+        --create-output-bam-md5 true\
+        --create-output-bam-index true\
         --add-output-sam-program-record \
         -R ~{reference.fasta} \
         -I ~{inputBam} \
@@ -158,17 +165,16 @@ task ApplyBQSR {
     timeMinutes: timeMinutes
   }
   output {
-    File bam = "~{outputBamBasename}.bam"
-    File bai = "~{outputBamBasename}.bai"
-
-    File bamChecksum = "~{outputBamBasename}.bam.md5"
+    File bam = outputBamBasename + ".bam"
+    File bai = outputBamBasename + ".bai"
+    File bammd5sum = outputBamBasename + ".bam.md5"
   }
 }
 
 task HaplotypeCallerGVcf {
     input {
-        File inputBam
-        File inputBai
+        IndexedFile inputBam
+        #File inputBai
         File targetIntervalList
         String outputVcfBasename
         Reference reference
@@ -179,20 +185,23 @@ task HaplotypeCallerGVcf {
         Boolean makeBamOut = true
         Boolean useSpanningEventGenotyping = false
         Float? contamination = 0
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int timeMinutes = 1 + ceil(size(inputBam.file, "G")) * 120
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(inputBam.file, "M")*1.2)
     }
 
     String vcfSuffix =  if makeGvcf then ".g.vcf" else ".vcf"
     String bamoutArg =  if makeBamOut then "-bamout " + outputVcfBasename + ".bamout.bam" else ""
+    File bamIn = inputBam.file
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         set -e
 
         ml ~{gatkModule}
-        gatk --java-options "-Xmx${javaMemoryGb}g -Xms${javaMemoryGb}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+        gatk --java-options "-Xmx${javaXmxMemoryMb}m -Xms${javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
             HaplotypeCaller \
             -R ~{reference.fasta} \
-            -I ~{inputBam} \
+            -I ~{bamIn} \
             -L ~{targetIntervalList} \
             -O "~{outputVcfBasename}~{vcfSuffix}" \
             -contamination ~{default=0 contamination} \
@@ -208,6 +217,10 @@ task HaplotypeCallerGVcf {
     output {
         File vcf = outputVcfBasename + vcfSuffix
         File vcfIdx = outputVcfBasename + vcfSuffix + ".idx"
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".idx"
+        }
     }
 
     runtime {

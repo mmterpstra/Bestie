@@ -53,7 +53,7 @@ task GroupReadsByUmi {
         java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar GroupReadsByUmi \
             --strategy=~{groupUmiReadsStrategy} \
             --input=~{inputBam} \
-            --output=~{outputBamBasename} \
+            --output=~{outputBamBasename}".bam" \
             --raw-tag=RX \
             --min-map-q=10 \
             --edits=1

@@ -36,10 +36,10 @@ workflow FastqToBam {
         File targetIntervalList
     }
     
-
+    #Link the sample specific value back to this sample or use the dafault value (usually false)
     Boolean runTwistUmiSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi]) else runTwistUmi
 
-    Boolean coordinateSort = if (runTwistUmi) then true else false
+    Boolean coordinateSort = if (runTwistUmiSample) then true else false
     scatter (rg in sample.readgroups) {
         #linking for uniform filenames
         call common.CreateLink as getfastq1 {
@@ -216,8 +216,8 @@ workflow FastqToBam {
     
     #optional basequality score recalibration
 
-    File prebqsrBam = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bam]) else sortBam.bam
-    File prebqsrBai = if(runTwistUmiSample) then ([bwaDuplexConsensusAlignment.bai]) else sortBam.bai
+    File prebqsrBam = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bam,sortBam.bam]) else sortBam.bam
+    File prebqsrBai = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bai,sortBam.bai]) else sortBam.bai
     if(runBaseQualityRecalibration){
         call gatk.BaseQualityScoreRecalibration as bqsr {
             input:
@@ -251,6 +251,10 @@ workflow FastqToBam {
             targetIntervalList = targetIntervalList,
             byReadGroup = true
     }
+    
+    File bam = if runBaseQualityRecalibration then select_first([applyBQSR.bam,prebqsrBam]) else prebqsrBam
+    File bai = if runBaseQualityRecalibration then select_first([applyBQSR.bai,prebqsrBai]) else prebqsrBai
+
     output {
         Array [File] fastqcZip = fastqc.zip
         #cutadapt logs
@@ -258,8 +262,10 @@ workflow FastqToBam {
         #markduplicates logs
         File markdupLog = markDups.metrics
         #bam output
-        File bai = if runBaseQualityRecalibration then select_first([applyBQSR.bai]) else prebqsrBai
-        File bam = if runBaseQualityRecalibration then select_first([applyBQSR.bai]) else prebqsrBam
+        IndexedFile bam = {
+          "file" : bam,
+          "index" : bai 
+        }
         File qcZip = bamQualityControl.qcZip
         File? umiQcZip = bamQualityControlUnMarked.qcZip
     }

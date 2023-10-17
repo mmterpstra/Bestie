@@ -7,6 +7,8 @@ task bwaAlignBam {
     input {
         File inputUnalignedBam
         Int? memoryGb = "12"
+        #mainly ~4g mergeBamAlignment memory for sorting and ~8 for bwa...
+        Int javaMemoryMb = ceil((memoryGb-8) * 1024 * 0.85)
 	    String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
         BwaIndex referenceBwaIndex
@@ -32,7 +34,7 @@ task bwaAlignBam {
             ~{referenceBwaIndex.fastaFile} \
             /dev/stdin - 2> >(tee ./bwa.stderr.log >&2)) | \
         (ml load ~{picardModule} && \
-            java -Dsamjdk.compression_level=1 -Xms1000m -Xmx1000m -jar $EBROOTPICARD/picard.jar \
+            java -Dsamjdk.compression_level=1 -Xms1000m -Xmx~{javaMemoryMb}m -jar $EBROOTPICARD/picard.jar \
             MergeBamAlignment \
             VALIDATION_STRINGENCY=SILENT \
             EXPECTED_ORIENTATIONS=FR \

@@ -80,8 +80,8 @@ workflow fastqToVariants {
         if(runReadcounter){
             call ichorcna.hmmcopyReadcounter as readcounter500kbp {
                 input:
-                    inputBam=fqToBam.bam,
-                    inputBai=fqToBam.bai,
+                    inputBam=fqToBam.bam.file,
+                    inputBai=fqToBam.bam.index,
                     outputPrefix=sample.name,
                     windowkilobase=500,
                     referencefai=reference.fai,
@@ -90,8 +90,8 @@ workflow fastqToVariants {
             }
             call ichorcna.hmmcopyReadcounter as readcounter1000kbp {
                 input:
-                    inputBam=fqToBam.bam,
-                    inputBai=fqToBam.bai,
+                    inputBam=fqToBam.bam.file,
+                    inputBai=fqToBam.bam.index,
                     outputPrefix=sample.name,
                     windowkilobase=1000,
                     referencefai=reference.fai,
@@ -109,7 +109,6 @@ workflow fastqToVariants {
                     gatkModule = gatkModule,
                     reference = reference,
                     inputBam = fqToBam.bam,
-                    inputBai = fqToBam.bai,
                     outputVcfBasename = sample.name + ".idx_" + scatteredtargetsIdx,
                     targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx]
             }
