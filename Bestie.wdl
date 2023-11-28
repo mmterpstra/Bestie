@@ -17,7 +17,7 @@ import "workflows/fastqToBam.wdl" as fastqToBam
 import "tasks/multiqc.wdl" as multiqc
 
 
-workflow fastqToVariants {
+workflow FastqToVariants {
     input {
         String fastqcModule = "FastQC/0.11.9-Java-11"
         String trimgaloreModule = "Trim_Galore/0.6.6-GCCcore-9.3.0-Python-3.8.2"
@@ -29,7 +29,7 @@ workflow fastqToVariants {
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String fgbioModule = "fgbio/1.3.0"
         Boolean runCutadapt = false 
-        String cutadaptModule = "fgbio/1.3.0"
+        String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Boolean runTwistUmi = false
@@ -38,6 +38,7 @@ workflow fastqToVariants {
         File sampleJson
         Reference reference
         IndexedFile dbsnp
+        IndexedFile cosmic
         Array[IndexedFile] knownSites
         File targetIntervalList
         Int targetScatter
@@ -77,8 +78,17 @@ workflow fastqToVariants {
                 knownSites = knownSites,
                 targetIntervalList = targetIntervalList
         }
+        #Does not work: sample.alignedReads = fqToBam. That is why I added this task to serialise/deserialise the json object and add the variables.
+        call common.AddAlignedReadsToSampleDescriptor as addBamToSample {
+            input:
+                sample=sample,
+                bam=fqToBam.bam
+        }
+        
+        SampleDescriptor sampleNew = addBamToSample.sampleUpdated
+
         if(runReadcounter){
-            call ichorcna.hmmcopyReadcounter as readcounter500kbp {
+            call ichorcna.HmmcopyReadcounter as readcounter500kbp {
                 input:
                     inputBam=fqToBam.bam.file,
                     inputBai=fqToBam.bam.index,
@@ -88,7 +98,7 @@ workflow fastqToVariants {
                     hmmcopyutilsModule=hmmcopyutilsModule,
                     samtoolsModule=samtoolsModule
             }
-            call ichorcna.hmmcopyReadcounter as readcounter1000kbp {
+            call ichorcna.HmmcopyReadcounter as readcounter1000kbp {
                 input:
                     inputBam=fqToBam.bam.file,
                     inputBai=fqToBam.bam.index,
@@ -101,26 +111,27 @@ workflow fastqToVariants {
         }
         
         #variant callin to sub pipeline
+
         #scatter by sequencing targets intervals
-        scatter (scatteredtargetsIdx in range(length(splitIntervals.paddedScatteredIntervalList))) {
+        #scatter (scatteredtargetsIdx in range(length(splitIntervals.paddedScatteredIntervalList))) {
             #haplotypecallergvcf
-            call gatk.HaplotypeCallerGVcf as haplotypeCallerGvcf {
-                input:
-                    gatkModule = gatkModule,
-                    reference = reference,
-                    inputBam = fqToBam.bam,
-                    outputVcfBasename = sample.name + ".idx_" + scatteredtargetsIdx,
-                    targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx]
-            }
+        #    call gatk.HaplotypeCallerGVcf as haplotypeCallerGvcf {
+        #        input:
+        #           gatkModule = gatkModule,
+        #            reference = reference,
+        #            inputBam = fqToBam.bam,
+        #            outputVcfBasename = sample.name + ".idx_" + scatteredtargetsIdx,
+        #            targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx]
+        #    }
             
-            #genotypegvcf
+            #genotypegvcf per sample?
 
             #mutect
 
             #Lofreq
-        }
-    }
+        #}
 
+    }
     #run multiqc to bundle outputs
     Array[File] files = flatten(
         flatten(
@@ -139,5 +150,27 @@ workflow fastqToVariants {
                 multiqcModule = multiqcModule,
                 files = files,
                 optionalFiles = select_all(flatten(flatten([fqToBam.cutadaptLogs,[fqToBam.umiQcZip]])))
-    }   
+    } 
+    output {
+        #output files of workflow
+        #needs to be debugged probably
+        
+        #fastqtobam certain output
+        Array [File] markdupLogs = fqToBam.markdupLog
+        Array [File] qcZips = fqToBam.qcZip
+        #fastqtobam optional output
+        Array [File?] cutadaptLogs = flatten(fqToBam.cutadaptLogs)
+        Array [File?] umiQcZips = fqToBam.umiQcZip
+        Array [IndexedFile] bams = fqToBam.bam
+
+        Array[SampleDescriptor] samples = SampleNew
+        #This depends on fastqToBam
+        File multiqcHtml = multiqc.html
+        File multiqcDir = multiqc.dir
+    }
+
+    meta {
+        author: "MMTerpstra"
+        description: "This is the single samples fastqs to aligned bam workflow."
+    }  
 }

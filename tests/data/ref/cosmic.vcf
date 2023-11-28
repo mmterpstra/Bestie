@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##INFO=<ID=AA,Number=1,Type=String,Description="Peptide annotation">
+##INFO=<ID=CDS,Number=1,Type=String,Description="CDS annotation">
+##INFO=<ID=CNT,Number=1,Type=Integer,Description="How many samples have this mutation">
+##INFO=<ID=GENE,Number=1,Type=String,Description="Gene name">
+##INFO=<ID=GENOMIC_ID,Number=1,Type=String,Description="Genomic Mutation ID">
+##INFO=<ID=LEGACY_ID,Number=1,Type=String,Description="Legacy Mutation ID">
+##INFO=<ID=SNP,Number=0,Type=Flag,Description="classified as SNP">
+##INFO=<ID=STRAND,Number=1,Type=String,Description="Gene strand">
+##comment="Missing nucleotide details indicate ambiguity during curation process"
+##contig=<ID=chr8:127736594-127740958,length=4364>
+##source=HaplotypeCaller
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr8:127736594-127740958	1000	COSV0000000000	G	T	.	.	LEGACY_ID=COSM0000000000;STRAND=+
+chr8:127736594-127740958	2500	COSV0000000000	AACGGG	A	.	.	LEGACY_ID=COSM0000000000;STRAND=+

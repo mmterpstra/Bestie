@@ -7,7 +7,7 @@
 PIPELINE="Bestie.wdl"
 WORKFLOWROOT="$PWD"
 
-while getopts i:s:w:r:f: flag
+while getopts i:s:w:r:f:d:p: flag
 do
     case "${flag}" in
         i) INPUTJSON=${OPTARG};;
@@ -15,7 +15,8 @@ do
         w) WORKFLOWROOT=${OPTARG};;
         r) RUNROOT=${OPTARG};;
         f) FASTQRAWDIRS=${OPTARG};;
-        p) PIPELINE=${OPTARG}
+        d) DATADIR=${OPTARG};;
+        p) PIPELINE=${OPTARG};;
     esac
 done
 
@@ -29,7 +30,9 @@ ml purge
 
     #init data
     if [ ! -e "$RUNROOT/data" ]; then
-        ln -s /groups/umcg-pmb/tmp01//apps/data $RUNROOT/
+        #ln -s /groups/umcg-pmb/tmp01//apps/data $RUNROOT/
+        ln -s $DATADIR/data $RUNROOT/
+        
     fi
 
     #archive inputs.json
@@ -68,19 +71,19 @@ ml purge
     done
     #fix samplejson link?
     #ls -alh $RUNROOT
-    perl -i.bak -wpe 's?"fastqToVariants.sampleJson": ".*",?"fastqToVariants.sampleJson": "'$RUNROOT/sample.json'",?g' $RUNROOT/inputs.json
+    perl -i.bak -wpe 's?.sampleJson": ".*",?.sampleJson": "'$RUNROOT/sample.json'",?g' $RUNROOT/inputs.json
     #start workflow
     
-    ml cromwell/56-Java-11 
+    ml cromwell/79-Java-11 
     set -x
     java -Xmx8g -Dconfig.file=$WORKFLOWROOT/site/gearshift/cromwell.conf \
         -jar $EBROOTCROMWELL/womtool.jar validate \
-        $WORKFLOWROOT/Bestie.wdl \
+        $WORKFLOWROOT/$PIPELINE \
         -i $RUNROOT/inputs.json 
     cd $RUNROOT
     nohup java -Xmx8g -Dconfig.file=$WORKFLOWROOT/site/gearshift/cromwell.conf \
         -jar $EBROOTCROMWELL/cromwell.jar run \
-        $WORKFLOWROOT/Bestie.wdl \
+        $WORKFLOWROOT/$PIPELINE \
         -i $RUNROOT/inputs.json \
         --workflow-root $WORKFLOWROOT 
 )

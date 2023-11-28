@@ -1,0 +1,38 @@
+{
+    "BamsToVariants.sampleJson": "raw/fastq/samples.json",
+    "BamsToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
+    "BamsToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
+    "BamsToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
+    "BamsToVariants.referenceBwaIndex": {
+      "fastaFile": "data/ref/ref.fasta",
+      "ambFile": "data/ref/ref.fasta.amb",
+      "annFile": "data/ref/ref.fasta.ann",
+      "bwtFile": "data/ref/ref.fasta.bwt",
+      "pacFile": "data/ref/ref.fasta.pac",
+      "saFile": "data/ref/ref.fasta.sa" 
+    },
+    "BamsToVariants.reference": {
+      "fasta": "data/ref/ref.fasta",
+      "dict": "data/ref/ref.dict",
+      "fai": "data/ref/ref.fasta.fai"
+    },
+    "BamsToVariants.dbsnp": {
+      "file" : "data/ref/dbsnp.vcf",
+      "index" : "data/ref/dbsnp.vcf.idx" 
+    },
+    "BamsToVariants.knownSites": 
+      [
+        {
+          "file": "data/ref/knownsites_indels.vcf",
+          "index": "data/ref/knownsites_indels.vcf.idx"
+        },
+        {
+          "file": "data/ref/knownsites_snv.vcf",
+          "index": "data/ref/knownsites_snv.vcf.idx"
+        }
+        
+      ],
+    "BamsToVariants.targetIntervalList": "data/ref/targets.interval_list",
+    "BamsToVariants.targetScatter": 3
+}
+  

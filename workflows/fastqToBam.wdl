@@ -23,7 +23,7 @@ workflow FastqToBam {
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String fgbioModule = "fgbio/1.3.0"
         Boolean runCutadapt = false 
-        String cutadaptModule = "fgbio/1.3.0"
+        String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Boolean runTwistUmi = false
@@ -266,6 +266,7 @@ workflow FastqToBam {
           "file" : bam,
           "index" : bai 
         }
+        
         File qcZip = bamQualityControl.qcZip
         File? umiQcZip = bamQualityControlUnMarked.qcZip
     }

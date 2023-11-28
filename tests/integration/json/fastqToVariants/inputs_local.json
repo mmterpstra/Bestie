@@ -1,5 +1,5 @@
 {
-  "FastqToVariants.sampleJson": "/groups/umcg-pmb/tmp01/projects/hematopathology/Lymphoma/20230601_GenomeScan_105690/20230601_GenomeScan_105690_10589.json",
+  "FastqToVariants.sampleJson": "sampletworeadgroups.json",
   "FastqToVariants.fastqcModule": "FastQC/0.11.9-Java-11",
   "FastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
   "FastqToVariants.multiqcModule": "multiqc/1.12-GCCcore-11.3.0",
@@ -31,6 +31,10 @@
     "file" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
     "index" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz.tbi" 
   },
+  "FastqToVariants.cosmic": {
+    "file" : "./data/sftp-cancer.sanger.ac.uk/files/grch38/cosmic/v90/VCF/CosmicCodingMuts_Homo_sapiens_assembly38.vcf.gz",
+    "index" : "./data/sftp-cancer.sanger.ac.uk/files/grch38/cosmic/v90/VCF/CosmicCodingMuts_Homo_sapiens_assembly38.vcf.gz.tbi" 
+  },
   "FastqToVariants.knownSites": 
     [
       {
@@ -44,4 +48,3 @@
       
     ]
 }
-

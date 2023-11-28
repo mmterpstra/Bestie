@@ -1,4 +1,6 @@
 version 1.0
+import "../structs.wdl" as structs
+
 
 task CollapseFastq {
     input {
@@ -103,6 +105,46 @@ task CreateLink {
 
     output {
         File link = outputPath
+    }
+
+    runtime {
+        memory: memory
+        timeMinutes: 10
+    }
+}
+
+task CatSampleDescriptorJson {
+    # This creates a new sampledescriptor from input sample descriptor later there should be ways to add in files/annotations
+    input {
+        SampleDescriptor sample
+        Int memory = 256
+    }
+    command {
+        cat ${write_json(sample)}
+    }
+
+    output {
+        SampleDescriptor sampleUpdated = read_json(stdout())
+    }
+
+    runtime {
+        memory: memory
+        timeMinutes: 10
+    }
+}
+task AddAlignedReadsToSampleDescriptor {
+    # This creates a new sampledescriptor from input sample descriptor later there should be ways to add in files/annotations
+    input {
+        SampleDescriptor sample
+        IndexedFile bam
+        Int memory = 256
+    }
+    command <<<
+        cat ~{write_json(sample)} | perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}"    
+    >>>
+
+    output {
+        SampleDescriptor sampleUpdated = read_json(stdout())
     }
 
     runtime {
