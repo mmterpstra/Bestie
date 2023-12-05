@@ -152,17 +152,11 @@ workflow FastqToBam {
                 inputBams = bwaAlignment.bam,
                 outputBamBasename = sample.name + '_sample',
         }
-        call fgbio.GroupReadsByUmi as groupReadsByUmi {
-            input:
-                fgbioModule = fgbioModule,
-                inputBam = mergeBySample.bam,
-                outputBamBasename = sample.name + '_grouped_by_umi',
-        }
         call picard.SortSam as sortMergedSampleBam {
             input: 
                 picardModule = picardModule,
                 inputBam = mergeBySample.bam,
-                outputBamBasename = sample.name + '_sorted',
+                outputBamBasename = sample.name + '_umi_sort',
         }
         call qc.bamQualityControl as bamQualityControlUnMarked {
         #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
@@ -176,6 +170,14 @@ workflow FastqToBam {
             targetIntervalList = targetIntervalList,
             byReadGroup = false
         }
+        
+        call fgbio.GroupReadsByUmi as groupReadsByUmi {
+            input:
+                fgbioModule = fgbioModule,
+                inputBam = mergeBySample.bam,
+                outputBamBasename = sample.name + '_before_umi',
+        }
+
         call fgbio.CallDuplexConsensusReads as callDuplexConsensusReads {
             input:
                 fgbioModule = fgbioModule,

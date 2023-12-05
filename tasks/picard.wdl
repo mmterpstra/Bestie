@@ -99,7 +99,7 @@ task SortSam {
     }
 
     runtime {
-        memory: select_first([memoryGb * 1024,4*1024])
+        memory: select_first([memoryGb * 1024, 4*1024])
         timeMinutes: timeMinutes
         disk: disk
     }
@@ -135,7 +135,7 @@ task MarkDuplicates {
     }
 
     runtime {
-        memory: select_first([memoryGb * 1024,4*1024])
+        memory: select_first([memoryGb * 1024, 4*1024])
         timeMinutes: timeMinutes
     }
 }

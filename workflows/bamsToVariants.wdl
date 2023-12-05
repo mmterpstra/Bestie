@@ -94,8 +94,8 @@ workflow BamsToVariants {
                 input:
                     gatkModule = gatkModule,
                     reference = reference,
-                    inputGVcfs = gatherRegions.vcfOut,
-                    inputGVcfsFiles = gatherRegions.vcf,
+                    inputGVcf = gatherSamples.vcfOut,
+                    inputGVcfsFile = gatherSamples.vcf,
                     outputVcfBasename = "haplotypecallergvcf_allsamples",
     }
     

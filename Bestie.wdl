@@ -149,6 +149,7 @@ workflow FastqToVariants {
             input:
                 multiqcModule = multiqcModule,
                 files = files,
+                prefix = "project_multiqc",
                 optionalFiles = select_all(flatten(flatten([fqToBam.cutadaptLogs,[fqToBam.umiQcZip]])))
     } 
     output {
@@ -163,7 +164,7 @@ workflow FastqToVariants {
         Array [File?] umiQcZips = fqToBam.umiQcZip
         Array [IndexedFile] bams = fqToBam.bam
 
-        Array[SampleDescriptor] samples = SampleNew
+        Array[SampleDescriptor] samples = sampleNew
         #This depends on fastqToBam
         File multiqcHtml = multiqc.html
         File multiqcDir = multiqc.dir

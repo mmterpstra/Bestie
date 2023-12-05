@@ -5,6 +5,7 @@ task MultiQC {
         #should be files or dirs
         Array[File] files
         Array[File?] optionalFiles
+        String prefix = "multiqc"
         #Scales badly might be a multiple of files
         Int? memoryGb = 8
 	    String multiqcModule
@@ -30,7 +31,7 @@ task MultiQC {
                     fi 
                 fi
         done ) > ./filelist.txt
-        module load ~{multiqcModule} && multiqc --force --file-list ./filelist.txt
+        module load ~{multiqcModule} && multiqc --force --filename ~{prefix} --file-list ./filelist.txt
     >>>
 
     output {

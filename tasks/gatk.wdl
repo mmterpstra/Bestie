@@ -109,7 +109,7 @@ task BaseQualityScoreRecalibration {
             tail -n+2)
         gatk --java-options "-XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:+PrintFlagsFinal \
             -XX:+PrintGCDetails \
-            -Xloggc:gc_log.log -Xms5000m -Xmx~{javaXmxMemoryMb}m" BaseRecalibrator \
+            -Xloggc:gc_log.log -Xmx~{javaXmxMemoryMb}m" BaseRecalibrator \
             --reference "~{reference.fasta}" \
             --input "~{inputBam}" \
             --use-original-qualities \
@@ -169,7 +169,7 @@ task ApplyBQSR {
     File bammd5sum = outputBamBasename + ".bam.md5"
   }
   runtime {
-    memory: memoryGb
+    memory: select_first([memoryGb * 1024,4*1024])
     timeMinutes: timeMinutes
     disk: disk
   }
@@ -275,7 +275,7 @@ task CombineGVCFs {
 }
 task GenotypeGVCFs {
     input{
-        IndexedFile inputGVcfs
+        IndexedFile inputGVcf
         File inputGVcfsFile
         String outputVcfBasename
         Reference reference
@@ -332,8 +332,9 @@ task MuTect2 {
         Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
         Int disk = ceil(size(inputBam.file, "M")*1.2)
     }
-
-    string normalSpec = if (artifactDetection) then " --artifact_detection_mode " else " -I:normal " + select_first(inputControlBam).file
+    
+    IndexedFile controlBam = select_first([inputControlBam,inputBam])
+    #String normalSpec = if (artifactDetection) then " --artifact_detection_mode " else " -I:normal " + inputControlBam.file
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         set -e
@@ -346,8 +347,9 @@ task MuTect2 {
             --dbsnp ~{dbsnp.file} \
             --cosmic ~{cosmic.file} \
             -I:tumor ~{inputBam.file} \
-            ~{normalSpec} \
-            -L  ~{targetIntervalList}\
+            ~{if artifactDetection then "" else "-I:normal " + controlBam.file} \
+            ~{if artifactDetection then " --artifact_detection_mode " else ""} \
+            -L  ~{targetIntervalList} \
             -o ~{outputVcfBasename}.vcf
 
     }
