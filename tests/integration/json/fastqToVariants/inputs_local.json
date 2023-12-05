@@ -1,0 +1,50 @@
+{
+  "FastqToVariants.sampleJson": "sampletworeadgroups.json",
+  "FastqToVariants.fastqcModule": "FastQC/0.11.9-Java-11",
+  "FastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
+  "FastqToVariants.multiqcModule": "multiqc/1.12-GCCcore-11.3.0",
+  "FastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-11.3.0",
+  "FastqToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
+  "FastqToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
+  "FastqToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
+  "FastqToVariants.hmmcopyutilsModule": "hmmcopy_utils/5911bf69f1-foss-2022a",
+  "FastqToVariants.referenceBwaIndex": {
+    "fastaFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta",
+    "ambFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.amb",
+    "annFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.ann",
+    "bwtFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.bwt",
+    "pacFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.pac",
+    "saFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.sa",
+    "altFile":"./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.alt"
+  },
+  "FastqToVariants.reference": {
+    "fasta": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta",
+    "dict": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.dict",
+    "fai": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.fai"
+  },
+  "FastqToVariants.targetIntervalList": "./data/interval_lists/hg38/S31285117_SureSelectV7_Regions_hg38.interval_list",
+  "FastqToVariants.targetScatter": 3,
+  "FastqToVariants.runCutadapt": false,
+  "FastqToVariants.read1Adapters": ["AGATCGGAAGAGC"],
+  "FastqToVariants.read2Adapters": ["AGATCGGAAGAGC"],
+  "FastqToVariants.dbsnp": {
+    "file" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
+    "index" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz.tbi" 
+  },
+  "FastqToVariants.cosmic": {
+    "file" : "./data/sftp-cancer.sanger.ac.uk/files/grch38/cosmic/v90/VCF/CosmicCodingMuts_Homo_sapiens_assembly38.vcf.gz",
+    "index" : "./data/sftp-cancer.sanger.ac.uk/files/grch38/cosmic/v90/VCF/CosmicCodingMuts_Homo_sapiens_assembly38.vcf.gz.tbi" 
+  },
+  "FastqToVariants.knownSites": 
+    [
+      {
+        "file": "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.known_indels.vcf.gz",
+        "index": "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.known_indels.vcf.gz.tbi"
+      },
+      {
+        "file": "./data/gcp-public-data--broad-references/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.gz",
+        "index": "./data/gcp-public-data--broad-references/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.gz.tbi"
+      }
+      
+    ]
+}

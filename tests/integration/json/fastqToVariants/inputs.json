@@ -1,0 +1,51 @@
+{
+  "FastqToVariants.sampleJson": "raw/fastq/samples.json",
+  "FastqToVariants.fastqcModule": "FastQC/0.11.9-Java-11",
+  "FastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
+  "FastqToVariants.multiqcModule": "multiqc/1.12-GCCcore-11.3.0",
+  "FastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-11.3.0",
+  "FastqToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
+  "FastqToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
+  "FastqToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
+  "FastqToVariants.hmmcopyutilsModule": "hmmcopy_utils/5911bf69f1-foss-2022a",
+  "FastqToVariants.fgbioModule": "fgbio/1.3.0",
+  "FastqToVariants.cutadaptModule": "cutadapt/4.2-GCCcore-11.3.0",
+  "FastqToVariants.runCutadapt": true,
+  "FastqToVariants.read1Adapters": ["NNNNNNNAGATCGGAAGAGC"],
+  "FastqToVariants.read2Adapters": ["NNNNNNNAGATCGGAAGAGC"],
+  "FastqToVariants.referenceBwaIndex": {
+    "fastaFile": "data/ref/ref.fasta",
+    "ambFile": "data/ref/ref.fasta.amb",
+    "annFile": "data/ref/ref.fasta.ann",
+    "bwtFile": "data/ref/ref.fasta.bwt",
+    "pacFile": "data/ref/ref.fasta.pac",
+    "saFile": "data/ref/ref.fasta.sa" 
+  },
+  "FastqToVariants.reference": {
+    "fasta": "data/ref/ref.fasta",
+    "dict": "data/ref/ref.dict",
+    "fai": "data/ref/ref.fasta.fai"
+  },
+  "FastqToVariants.dbsnp": {
+    "file" : "data/ref/dbsnp.vcf",
+    "index" : "data/ref/dbsnp.vcf.idx" 
+  },
+  "FastqToVariants.cosmic": {
+    "file" : "data/ref/cosmic.vcf",
+    "index" : "data/ref/cosmic.vcf.idx" 
+  },
+  "FastqToVariants.knownSites": 
+    [
+      {
+        "file": "data/ref/knownsites_indels.vcf",
+        "index": "data/ref/knownsites_indels.vcf.idx"
+      },
+      {
+        "file": "data/ref/knownsites_snv.vcf",
+        "index": "data/ref/knownsites_snv.vcf.idx"
+      }
+      
+    ],
+  "FastqToVariants.targetIntervalList": "data/ref/targets.interval_list",
+  "FastqToVariants.targetScatter": 3
+}

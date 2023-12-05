@@ -41,6 +41,7 @@ task CollectMultipleMetrics {
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 }
 
@@ -78,6 +79,7 @@ task CollectHsMetrics {
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 }
 
@@ -107,7 +109,7 @@ task BaseQualityScoreRecalibration {
             tail -n+2)
         gatk --java-options "-XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:+PrintFlagsFinal \
             -XX:+PrintGCDetails \
-            -Xloggc:gc_log.log -Xms5000m -Xmx~{javaXmxMemoryMb}m" BaseRecalibrator \
+            -Xloggc:gc_log.log -Xmx~{javaXmxMemoryMb}m" BaseRecalibrator \
             --reference "~{reference.fasta}" \
             --input "~{inputBam}" \
             --use-original-qualities \
@@ -125,6 +127,7 @@ task BaseQualityScoreRecalibration {
     runtime {
         memory: select_first([memoryGb * 1024,6*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 }
 
@@ -160,14 +163,15 @@ task ApplyBQSR {
         -O ~{outputBamBasename}.bam \
         -bqsr ~{recalibrationReport} 
   }
-  runtime {
-    memory: memoryGb
-    timeMinutes: timeMinutes
-  }
   output {
     File bam = outputBamBasename + ".bam"
     File bai = outputBamBasename + ".bai"
     File bammd5sum = outputBamBasename + ".bam.md5"
+  }
+  runtime {
+    memory: select_first([memoryGb * 1024,4*1024])
+    timeMinutes: timeMinutes
+    disk: disk
   }
 }
 
@@ -226,31 +230,144 @@ task HaplotypeCallerGVcf {
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 }
 
 #add genomicsdb import#
 
-task GenotypeGVcf {
+task CombineGVCFs {
     input{
-        Array[File] inputGVcfs
+        Array[IndexedFile] inputGVcfs
+        Array[File] inputGVcfsFiles
+        String outputVcfBasename
         Reference reference
         String gatkModule = "GATK"
         Int memoryGb = "4"
-        Int javaMemoryGb = memoryGb - 1
-        Int timeMinutes = 1 + ceil(size(inputGVcfs, "G")) * 120
-
+        Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
+        Int timeMinutes = 1 + ceil(size(inputGVcfsFiles, "G")) * 120
+        Int disk = 1 + ceil(size(inputGVcfsFiles, "G") * 2.1) #worst case
       }
+    String vcfSuffix = ".g.vcf.gz"
+    #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
     command <<<
         ml ~{gatkModule}
-      
-
+         gatk --java-options "-Xmx~{javaXmxMemoryMb}m -Xms~{javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            CombineGVCFs \
+            -R ~{reference.fasta} \
+            --variant ~{sep=' --variant ' inputGVcfsFiles} \
+            -O ~{outputVcfBasename}~{vcfSuffix}
     >>>
+    output {
+        File vcf = outputVcfBasename + vcfSuffix
+        File vcfIdx = outputVcfBasename + vcfSuffix + ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".tbi"
+        }
+    }
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 
+}
+task GenotypeGVCFs {
+    input{
+        IndexedFile inputGVcf
+        File inputGVcfsFile
+        String outputVcfBasename
+        Reference reference
+        String gatkModule = "GATK"
+        Int memoryGb = "4"
+        Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
+        Int timeMinutes = 1 + ceil(size(inputGVcfsFile, "G")) * 120
+        Int disk = 1 + ceil(size(inputGVcfsFile, "G") * 2.1) #worst case
+    }
+    String vcfSuffix = ".vcf.gz"
+    #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
+    command <<<
+        ml ~{gatkModule}
+         gatk --java-options "-Xmx~{javaXmxMemoryMb}m -Xms~{javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            CombineGVCFs \
+            -R ~{reference.fasta} \
+            --variant ~{inputGVcfsFile} \
+            -O ~{outputVcfBasename}~{vcfSuffix}
+    >>>
+    output {
+        File vcf = outputVcfBasename + vcfSuffix
+        File vcfIdx = outputVcfBasename + vcfSuffix + ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".tbi"
+        }
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+
+}
+
+
+task MuTect2 {
+    input {
+        IndexedFile inputBam
+        IndexedFile? inputControlBam
+        #File inputBai
+        File targetIntervalList
+        String outputVcfBasename
+        Reference reference
+        IndexedFile dbsnp
+        IndexedFile cosmic
+
+        String gatkModule = "GATK"
+        Int memoryGb = "8"
+        Int javaMemoryGb = memoryGb - 1
+        Boolean artifactDetection = false
+        Float? contamination = 0
+        Int timeMinutes = 1 + ceil(size(inputBam.file, "G")) * 120
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(inputBam.file, "M")*1.2)
+    }
+    
+    IndexedFile controlBam = select_first([inputControlBam,inputBam])
+    #String normalSpec = if (artifactDetection) then " --artifact_detection_mode " else " -I:normal " + inputControlBam.file
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        set -e
+
+        ml ~{gatkModule}
+        
+        gatk --java-options "-Xmx${javaXmxMemoryMb}m -Xms${javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            MuTect2 \
+            -R ~{reference.fasta} \
+            --dbsnp ~{dbsnp.file} \
+            --cosmic ~{cosmic.file} \
+            -I:tumor ~{inputBam.file} \
+            ~{if artifactDetection then "" else "-I:normal " + controlBam.file} \
+            ~{if artifactDetection then " --artifact_detection_mode " else ""} \
+            -L  ~{targetIntervalList} \
+            -o ~{outputVcfBasename}.vcf
+
+    }
+    
+    output {
+        File vcf = outputVcfBasename + '.vcf'
+        File vcfIdx = outputVcfBasename +  '.vcf.idx'
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + '.vcf',
+          "index" : outputVcfBasename + '.vcf.idx'
+        }
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
 }
 #SPLIT_TO_N_READS
 #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/Alignment.wdl#L128

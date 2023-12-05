@@ -30,7 +30,7 @@ task SizeselectLessOrEqual150 {
     }
 }
 
-task hmmcopyReadcounter {
+task HmmcopyReadcounter {
     input {
         File inputBam
         File inputBai

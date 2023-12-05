@@ -1,5 +1,9 @@
 version 1.0
 
+struct IndexedFile {
+    File file
+    File index
+}
 struct ReadGroup {
     #should be unique for multiple samples??
     String identifier
@@ -33,7 +37,7 @@ struct SampleDescriptor {
     String? control
     String? gender
     Boolean? runTwistUmi
-
+    IndexedFile? alignedReads
     Array[ReadGroup] readgroups
 }
 
@@ -57,9 +61,4 @@ struct Reference {
     File fasta
     File dict
     File fai
-}
-
-struct IndexedFile {
-    File file
-    File index
 }

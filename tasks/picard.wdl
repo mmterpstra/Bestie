@@ -99,7 +99,7 @@ task SortSam {
     }
 
     runtime {
-        memory: select_first([memoryGb * 1024,4*1024])
+        memory: select_first([memoryGb * 1024, 4*1024])
         timeMinutes: timeMinutes
         disk: disk
     }
@@ -135,7 +135,7 @@ task MarkDuplicates {
     }
 
     runtime {
-        memory: select_first([memoryGb * 1024,4*1024])
+        memory: select_first([memoryGb * 1024, 4*1024])
         timeMinutes: timeMinutes
     }
 }
@@ -192,30 +192,34 @@ task SplitAndPadIntervals {
         java -Xmx4g -jar $EBROOTPICARD/picard.jar \
         IntervalListTools \
         INPUT="~{inputIntervalListFile}" \
-        OUTPUT="~{outputPrefix}.interval_list" \
+        OUTPUT="padded_list.interval_list" \
         PADDING=~{padding} \
         SUBDIVISION_MODE=BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW \
         UNIQUE=true \
         COMMENT="Added padding of ~{padding} bp and merge overlapping and adjacent intervals to create a list of unique intervals PADDING=~{padding} UNIQUE=true"
 
         mkdir -p ~{outputPrefix}_scatter
-        
+        mkdir -p scatter_list
         java -Xmx4g -jar $EBROOTPICARD/picard.jar \
         IntervalListTools \
         INPUT="~{inputIntervalListFile}" \
-        OUTPUT="~{outputPrefix}_scatter" \
+        OUTPUT="scatter_list" \
         PADDING=~{padding} \
         SCATTER_COUNT=~{targetScatter} \
         SUBDIVISION_MODE=BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW \
         UNIQUE=true \
         COMMENT="Added padding of ~{padding} bp and merge overlapping and adjacent intervals to create a list of unique intervals PADDING=~{padding} UNIQUE=true"  
+        FILEINDEX=0
+        for FILE in ./scatter_list/*/*.interval_list; do
+            mv $FILE "$(dirname $FILE)""/""$FILEINDEX""_""$(basename $FILE)"
+            FILEINDEX=$((FILEINDEX+1))
+        done
     }
     
     output {
-        File paddedIntervalList = outputPrefix + ".interval_list"
-        #Array[File] =  outputPrefix + ".interval_list"
-        Array[File] paddedScatteredIntervalList = glob(outputPrefix + "_scatter/temp_*_of_"+ targetScatter +"/scattered.interval_list")
-        #Int interval_count = read_int(stdout())
+        File paddedIntervalList = "padded_list.interval_list"
+        #Array[File] paddedScatteredIntervalList = glob(outputPrefix + "_scatter/temp_*_of_"+ targetScatter +"/scattered.interval_list")
+        Array[File] paddedScatteredIntervalList = glob("scatter_list/*/*.interval_list")
     }
 
     runtime {
