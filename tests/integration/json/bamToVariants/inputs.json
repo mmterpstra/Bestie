@@ -20,6 +20,10 @@
       "file" : "data/ref/dbsnp.vcf",
       "index" : "data/ref/dbsnp.vcf.idx" 
     },
+    "BamsToVariants.cosmic": {
+      "file" : "data/ref/cosmic.vcf",
+      "index" : "data/ref/cosmic.vcf.idx" 
+    },
     "BamsToVariants.knownSites": 
       [
         {
