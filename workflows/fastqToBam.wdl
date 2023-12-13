@@ -38,6 +38,7 @@ workflow FastqToBam {
     
     #Link the sample specific value back to this sample or use the dafault value (usually false)
     Boolean runTwistUmiSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi]) else runTwistUmi
+    Boolean runCutadaptSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi]) else runCutadapt
 
     Boolean coordinateSort = if (runTwistUmiSample) then true else false
     scatter (rg in sample.readgroups) {
@@ -71,7 +72,7 @@ workflow FastqToBam {
                 memoryGb = 1,
                 trimgaloreModule = trimgaloreModule
         }
-        if(runCutadapt) {
+        if(runCutadaptSample) {
                 call cutadapt.Cutadapt as cutadaptPe {
                     input:
                         cutadaptModule = cutadaptModule,
@@ -192,7 +193,20 @@ workflow FastqToBam {
                 bwaModule = bwaModule,
                 picardModule = picardModule,
                 outputBamBasename = sample.name + "_duplex_aligned",
-                coordinateSort = coordinateSort
+                coordinateSort = coordinateSort,
+                timeMinutes = 20 + ceil(size(callDuplexConsensusReads.bam, "G")) * 120 * 3 #Due to sorting the speed decreases a lot.
+        }
+        call qc.bamQualityControl as bamQualityControlConsensusReads {
+        #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
+            input:
+            gatkModule = gatkModule,
+            picardModule = picardModule,
+            reference = reference,
+            inputBam = select_first([bwaDuplexConsensusAlignment.bam]),
+            inputBai = select_first([bwaDuplexConsensusAlignment.bai]),
+            outputPrefix =  sample.name + '_consensusreads_qc',
+            targetIntervalList = targetIntervalList,
+            byReadGroup = false
         }
 
     }
@@ -261,6 +275,7 @@ workflow FastqToBam {
         Array [File] fastqcZip = fastqc.zip
         #cutadapt logs
         Array [File?] cutadaptLogs = select_all(cutadaptPe.fastq1Log)
+        Array [File?] cutadaptFastqcZip = fastqcCutadapt.zip
         #markduplicates logs
         File markdupLog = markDups.metrics
         #bam output
@@ -270,7 +285,9 @@ workflow FastqToBam {
         }
         
         File qcZip = bamQualityControl.qcZip
-        File? umiQcZip = bamQualityControlUnMarked.qcZip
+        File? preUmiQcZip = bamQualityControlUnMarked.qcZip
+        File? umiQcZip = bamQualityControlConsensusReads.qcZip
+        File? basequalityRecalibratonReport = bqsr.recalibrationReport
     }
 
     meta {

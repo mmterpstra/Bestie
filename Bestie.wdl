@@ -76,7 +76,8 @@ workflow FastqToVariants {
                 runCutadapt = runCutadapt,
                 dbsnp = dbsnp,
                 knownSites = knownSites,
-                targetIntervalList = targetIntervalList
+                targetIntervalList = targetIntervalList,
+                runTwistUmi = runTwistUmi
         }
         #Does not work: sample.alignedReads = fqToBam. That is why I added this task to serialise/deserialise the json object and add the variables.
         call common.AddAlignedReadsToSampleDescriptor as addBamToSample {
@@ -144,13 +145,17 @@ workflow FastqToVariants {
             ]
         )
     )
-    #Array[String] optionalFiles = 
+    Array[File?] optionalPerSampleFiles = flatten([select_all(fqToBam.umiQcZip),select_all(fqToBam.preUmiQcZip)])
+    Array[File?] optionalPerReadgroupFiles = select_all(flatten(fqToBam.cutadaptLogs))
+    #add fqToBam.fastqcZip or not???
+    Array[File?] optionalFiles = select_all(flatten([optionalPerSampleFiles,optionalPerReadgroupFiles]))
     call multiqc.MultiQC as multiqc {
             input:
                 multiqcModule = multiqcModule,
                 files = files,
                 prefix = "project_multiqc",
-                optionalFiles = select_all(flatten(flatten([fqToBam.cutadaptLogs,[fqToBam.umiQcZip]])))
+                #This might be a miss on mixed data so try to include a file 'fqToBam.qcZip' to make it work (hopefully).
+                optionalFiles = optionalFiles
     } 
     output {
         #output files of workflow
@@ -161,6 +166,7 @@ workflow FastqToVariants {
         Array [File] qcZips = fqToBam.qcZip
         #fastqtobam optional output
         Array [File?] cutadaptLogs = flatten(fqToBam.cutadaptLogs)
+        Array [File?] cutadaptFastqcZip = flatten(fqToBam.cutadaptFastqcZip)
         Array [File?] umiQcZips = fqToBam.umiQcZip
         Array [IndexedFile] bams = fqToBam.bam
 

@@ -1,5 +1,5 @@
 {
-  "FastqToVariants.sampleJson": "raw/fastq/samples.json",
+  "FastqToVariants.sampleJson": "./tests/integration/json/fastqToVariants/samples.json",
   "FastqToVariants.fastqcModule": "FastQC/0.11.9-Java-11",
   "FastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
   "FastqToVariants.multiqcModule": "multiqc/1.12-GCCcore-11.3.0",
