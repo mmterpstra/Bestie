@@ -1,6 +1,7 @@
 {"samples": 
     [
         {"name": "MySample",
+            "runTwistUmi": true,
             "readgroups" : [
                 {"identifier": "S01",
                     "lane": "L001",

@@ -35,8 +35,8 @@ task MultiQC {
     >>>
 
     output {
-        File dir =  "multiqc_data"
-        File html = "multiqc_report.html"
+        File dir =  prefix+ "_data"
+        File html = prefix + ".html"
     }
 
     runtime {
