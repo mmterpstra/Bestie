@@ -5,10 +5,10 @@ import "../structs.wdl" as structs
 
 task bwaAlignBam {
     input {
-        File inputUnalignedBam
-        Int? memoryGb = "16"
+        File inputUnalignedBam  
+        Int? memoryGb = if coordinateSort then "21" else "16"
         #mainly ~4g mergeBamAlignment memory for sorting and ~8 for bwa...
-        Int javaMemoryMb = ceil((memoryGb-8) * 1024 * 0.9)
+        Int javaMemoryMb = ceil((memoryGb-8) * 1024 * 0.95)
 	    String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
         BwaIndex referenceBwaIndex
