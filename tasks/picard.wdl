@@ -113,6 +113,7 @@ task MarkDuplicates {
         String picardModule = "picard"
         Int? memoryGb = "5"
         Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
+        Int disk = ceil(size(inputBams, "M")*1.2)
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
@@ -137,6 +138,7 @@ task MarkDuplicates {
     runtime {
         memory: select_first([memoryGb * 1024, 4*1024])
         timeMinutes: timeMinutes
+        disk: disk
     }
 }
 

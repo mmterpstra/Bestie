@@ -220,3 +220,36 @@ task ZipFiles {
         memory: memory
     }
 }
+
+task CheckModules {
+    input {
+        Array[String] modules
+        Int memory = 512
+    }
+    
+    #WIP: does not localise optional files...
+
+    command {
+        set -e -o pipefail
+        echo "# env"
+        printenv > printenv.log
+        echo "#modules"
+        cat ~{write_lines(modules)} | 
+        ( while read FILE; do 
+            echo "Testing for the availability of $FILE"
+            ml --quiet av $FILE;
+            (ml $FILE || ml --ignore-cache load $FILE)
+        done ) > modulelist.log
+
+        
+    }
+
+    output {
+        File moduleLog = "modulelist.log"
+        File printenvLog = "printenv.log"
+    }
+
+    runtime {
+        memory: memory
+    }
+}

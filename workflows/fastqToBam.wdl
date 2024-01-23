@@ -110,7 +110,7 @@ workflow FastqToBam {
             call fgbio.ExtractUmisFromBam as ExtractUmis {
                 input:
                     inputBam=fastqToUnmappedBam.unalignedBam,
-                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi.bam",
+                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi",
                     fgbioModule=fgbioModule
             }
         }
@@ -194,7 +194,8 @@ workflow FastqToBam {
                 picardModule = picardModule,
                 outputBamBasename = sample.name + "_duplex_aligned",
                 coordinateSort = coordinateSort,
-                timeMinutes = 20 + ceil(size(callDuplexConsensusReads.bam, "G")) * 120 * 3 #Due to sorting the speed decreases a lot.
+                timeMinutes = 20 + ceil(size(callDuplexConsensusReads.bam, "G")) * 120 * 3, #Due to sorting/extra tags (increase in filesize) in the speed decreases a lot.
+                umiTags = runTwistUmi
         }
         call qc.bamQualityControl as bamQualityControlConsensusReads {
         #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
