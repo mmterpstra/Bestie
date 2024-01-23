@@ -109,9 +109,9 @@ workflow FastqToBam {
         if (runTwistUmiSample) {
             call fgbio.ExtractUmisFromBam as ExtractUmis {
                 input:
+                    fgbioModule=fgbioModule,
                     inputBam=fastqToUnmappedBam.unalignedBam,
-                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi",
-                    fgbioModule=fgbioModule
+                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi"
             }
         }
         #note: consider adding a step to make the trimgalore compatible with the best practices MarkIlluminaAdapters workflow. Though some (old) software just expect the adapters to be removed and not marked.  

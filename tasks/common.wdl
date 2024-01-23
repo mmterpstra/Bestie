@@ -140,11 +140,13 @@ task AddAlignedReadsToSampleDescriptor {
         Int memory = 256
     }
     command <<<
-        cat ~{write_json(sample)} | perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}"    
+        cat ~{write_json(sample)} | \
+            perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}" \
+            > ./sampleJsonUpdated.json  
     >>>
 
     output {
-        SampleDescriptor sampleUpdated = read_json(stdout())
+        SampleDescriptor sampleUpdated = read_json('./sampleJsonUpdated.json')
     }
 
     runtime {
