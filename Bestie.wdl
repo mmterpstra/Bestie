@@ -27,7 +27,7 @@ workflow FastqToVariants {
         String gatkModule = "GATK/4.2.4.1-Java-8-LTS"
         String hmmcopyutilsModule = "hmmcopy_utils/5911bf69f1-foss-2022a"
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
-        String fgbioModule = "fgbio/1.3.0"
+        String fgbioModule = "fgbio/1.5.1"
         Boolean runCutadapt = false 
         String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
@@ -46,7 +46,10 @@ workflow FastqToVariants {
     }
     SampleConfig sampleConfig = read_json(sampleJson)
 
-
+    call common.CheckModules as checkModules {
+        input:
+            modules = [fastqcModule,trimgaloreModule,multiqcModule,bwaModule,picardModule,gatkModule,hmmcopyutilsModule,samtoolsModule,fgbioModule]
+    }
     call picard.SplitAndPadIntervals as splitIntervals {
     input:
         picardModule = picardModule,

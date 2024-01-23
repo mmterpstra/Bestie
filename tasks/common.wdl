@@ -140,11 +140,13 @@ task AddAlignedReadsToSampleDescriptor {
         Int memory = 256
     }
     command <<<
-        cat ~{write_json(sample)} | perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}"    
+        cat ~{write_json(sample)} | \
+            perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}" \
+            > ./sampleJsonUpdated.json  
     >>>
 
     output {
-        SampleDescriptor sampleUpdated = read_json(stdout())
+        SampleDescriptor sampleUpdated = read_json('./sampleJsonUpdated.json')
     }
 
     runtime {
@@ -214,6 +216,39 @@ task ZipFiles {
 
     output {
         File zip = outputPrefix + ".zip"
+    }
+
+    runtime {
+        memory: memory
+    }
+}
+
+task CheckModules {
+    input {
+        Array[String] modules
+        Int memory = 512
+    }
+    
+    #WIP: does not localise optional files...
+
+    command {
+        set -e -o pipefail
+        echo "# env"
+        printenv > printenv.log
+        echo "#modules"
+        cat ~{write_lines(modules)} | 
+        ( while read FILE; do 
+            echo "Testing for the availability of $FILE"
+            ml --quiet av $FILE;
+            (ml $FILE || ml --ignore-cache load $FILE)
+        done ) > modulelist.log
+
+        
+    }
+
+    output {
+        File moduleLog = "modulelist.log"
+        File printenvLog = "printenv.log"
     }
 
     runtime {

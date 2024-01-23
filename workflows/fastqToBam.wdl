@@ -109,9 +109,9 @@ workflow FastqToBam {
         if (runTwistUmiSample) {
             call fgbio.ExtractUmisFromBam as ExtractUmis {
                 input:
+                    fgbioModule=fgbioModule,
                     inputBam=fastqToUnmappedBam.unalignedBam,
-                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi.bam",
-                    fgbioModule=fgbioModule
+                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi"
             }
         }
         #note: consider adding a step to make the trimgalore compatible with the best practices MarkIlluminaAdapters workflow. Though some (old) software just expect the adapters to be removed and not marked.  
@@ -194,7 +194,8 @@ workflow FastqToBam {
                 picardModule = picardModule,
                 outputBamBasename = sample.name + "_duplex_aligned",
                 coordinateSort = coordinateSort,
-                timeMinutes = 20 + ceil(size(callDuplexConsensusReads.bam, "G")) * 120 * 3 #Due to sorting the speed decreases a lot.
+                timeMinutes = 20 + ceil(size(callDuplexConsensusReads.bam, "G")) * 120 * 3, #Due to sorting/extra tags (increase in filesize) in the speed decreases a lot.
+                umiTags = runTwistUmi
         }
         call qc.bamQualityControl as bamQualityControlConsensusReads {
         #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {

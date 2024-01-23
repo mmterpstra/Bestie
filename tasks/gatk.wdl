@@ -283,7 +283,7 @@ task GenotypeGVCFs {
         Int memoryGb = "4"
         Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
         Int timeMinutes = 1 + ceil(size(inputGVcfsFile, "G")) * 120
-        Int disk = 1 + ceil(size(inputGVcfsFile, "G") * 2.1) #worst case
+        Int disk = 1 + ceil(size(inputGVcfsFile, "m") * 2.1) #worst case
     }
     String vcfSuffix = ".vcf.gz"
     #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]

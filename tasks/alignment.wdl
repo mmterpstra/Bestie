@@ -5,19 +5,25 @@ import "../structs.wdl" as structs
 
 task bwaAlignBam {
     input {
-        File inputUnalignedBam  
-        Int? memoryGb = if coordinateSort then "21" else "16"
-        #mainly ~4g mergeBamAlignment memory for sorting and ~8 for bwa...
-        Int javaMemoryMb = ceil((memoryGb-8) * 1024 * 0.95)
+        File inputUnalignedBam
+        #note on memory usage
+        #mainly ~8g for mergeBamAlignment memory, ~8g for bwa/bamtofastq and optionally ~8 for sorting/extra umiconsensus read data overhead.
+        #This is for 150 bp reads for longer reads maybe more?
+        Int memoryGb = if coordinateSort then 16+8 else 16
+        #optional filling in only works partailly idk why
+        Int javaMemoryMb = if coordinateSort then ceil((16+8-8)*1024*0.95) else ceil((16-8)*1024*0.95)
 	    String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
         BwaIndex referenceBwaIndex
         Reference reference
+        Boolean umiTags = false
         String outputBamBasename
         Int threads = 8
+        Int disk = ceil(size(inputUnalignedBam, "M")*2.1)
         Int timeMinutes = 1 + ceil(size(inputUnalignedBam, "G")) * 120 + 20
         Boolean coordinateSort = false
     }
+    #Int javaMemoryMb =  if coordinateSort then ceil((memoryGb+8-8) * 1024) else ceil(memoryGb-8 * 1024)
     command <<<
         set -o pipefail
 
@@ -61,7 +67,18 @@ task bwaAlignBam {
             UNMAPPED_READ_STRATEGY=COPY_TO_TAG \
             ALIGNER_PROPER_PAIR_FLAGS=true \
             ADD_PG_TAG_TO_READS=false \
-            ~{if coordinateSort then "CREATE_INDEX=true" else ""}
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ZS" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ZI" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ZM" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ZC" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ZN" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ad" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=bd" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=cd" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ae" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=be" else ""} \
+            ~{if umiTags then "ATTRIBUTES_TO_RETAIN=ce" else ""} \
+            ~{if coordinateSort then "CREATE_INDEX=true" else ""} 
             )
     >>>
 
@@ -71,9 +88,9 @@ task bwaAlignBam {
     }
 
     runtime {
-        memory: select_first([memoryGb * 1024,1024])
+        memory: ceil(memoryGb * 1024)
         timeMinutes: timeMinutes
         cpus: threads
-        #disk: 
+        disk: disk 
     }
 }
