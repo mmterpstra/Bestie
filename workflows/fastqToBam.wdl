@@ -198,7 +198,6 @@ workflow FastqToBam {
                 umiTags = runTwistUmi
         }
         call qc.bamQualityControl as bamQualityControlConsensusReads {
-        #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
             input:
             gatkModule = gatkModule,
             picardModule = picardModule,
@@ -228,6 +227,17 @@ workflow FastqToBam {
             outputBamBasename = sample.name + '_sort'
             
     }
+    call qc.bamQualityControl as bamQualityControl {
+        input:
+            gatkModule = gatkModule,
+            picardModule = picardModule,
+            reference = reference,
+            inputBam = sortBam.bam,
+            inputBai = sortBam.bai,
+            outputPrefix =  sample.name + '_qc',
+            targetIntervalList = targetIntervalList,
+            byReadGroup = true
+    }
     #optional indelrealignment
     #wip or skip
     
@@ -254,20 +264,19 @@ workflow FastqToBam {
                 gatkModule=gatkModule,
                 outputBamBasename=sample.name + '_recalibrated'
         }
-    }        
-    #run qc
-    call qc.bamQualityControl as bamQualityControl {
-    #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
-        input:
-            gatkModule = gatkModule,
-            picardModule = picardModule,
-            reference = reference,
-            inputBam = sortBam.bam,
-            inputBai = sortBam.bai,
-            outputPrefix =  sample.name + '_qc',
-            targetIntervalList = targetIntervalList,
-            byReadGroup = true
-    }
+        call qc.bamQualityControl as recalibratedBamQualityControl {
+            input:
+                gatkModule = gatkModule,
+                picardModule = picardModule,
+                reference = reference,
+                inputBam = applyBQSR.bam,
+                inputBai = applyBQSR.bai,
+                outputPrefix =  sample.name + '_qc',
+                targetIntervalList = targetIntervalList,
+                byReadGroup = true
+        }
+
+    }            
     
     File bam = if runBaseQualityRecalibration then select_first([applyBQSR.bam,prebqsrBam]) else prebqsrBam
     File bai = if runBaseQualityRecalibration then select_first([applyBQSR.bai,prebqsrBai]) else prebqsrBai
@@ -288,6 +297,7 @@ workflow FastqToBam {
         File qcZip = bamQualityControl.qcZip
         File? preUmiQcZip = bamQualityControlUnMarked.qcZip
         File? umiQcZip = bamQualityControlConsensusReads.qcZip
+        File? umiFamilySizeHistogram = groupReadsByUmi.familySizeHistogram
         File? basequalityRecalibratonReport = bqsr.recalibrationReport
     }
 

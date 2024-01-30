@@ -54,6 +54,7 @@ task GroupReadsByUmi {
             --strategy=~{groupUmiReadsStrategy} \
             --input=~{inputBam} \
             --output=~{outputBamBasename}".bam" \
+            --family-size-histogram=~{outputBamBasename}".hist" \
             --raw-tag=RX \
             --min-map-q=10 \
             --edits=1
@@ -61,6 +62,7 @@ task GroupReadsByUmi {
 
     output {
         File bam = outputBamBasename + ".bam"
+        File familySizeHistogram = outputBamBasename + ".hist"
     }
 
     runtime {

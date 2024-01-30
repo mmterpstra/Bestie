@@ -4,7 +4,8 @@ task FastqToUnmappedBam {
     input {
         File inputFastq1
         File? inputFastq2
-        Int? memoryGb = "2"
+        Int memoryGb = "1"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         String picardModule = "picard"
         String sampleName = "test"
         String readgroup = "A"
@@ -18,7 +19,7 @@ task FastqToUnmappedBam {
     command {
         set -e
         module load ~{picardModule} && \
-        java -Xmx1g \
+        java -Xmx~{javaXmxMemoryMb}m \
             -jar $EBROOTPICARD/picard.jar FastqToSam \
             FASTQ=~{inputFastq1} \
             ~{"FASTQ2=" + inputFastq2} \
@@ -44,7 +45,8 @@ task SamToFastq {
     input{
         File inputBam
         String outputFastqDirBase
-        Int? memoryGb = "2"
+        Int memoryGb = "1"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         String picardModule = "picard"
         Int disk = ceil(size(inputBam, "M")*2.1)
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 60
@@ -52,7 +54,7 @@ task SamToFastq {
     command {
         set -e
         module load ~{picardModule} && \
-        java -Xmx1g \
+        java -Xmx~{javaXmxMemoryMb} \
             -jar $EBROOTPICARD/picard.jar FastqToSam \
             INPUT=~{inputBam} \
             OUTPUT_PER_RG=true \
@@ -72,7 +74,8 @@ task SamToFastq {
 task SortSam {
     input {
         File inputBam
-        Int? memoryGb = "5"
+        Int memoryGb = "15"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         String picardModule = "picard"
         String outputBamBasename
         #String? platformModel = "NextSeq?"    
@@ -82,7 +85,7 @@ task SortSam {
     command {
         set -e
         module load ~{picardModule} && \
-        java -Xmx4g \
+        java -Xmx~{javaXmxMemoryMb}m \
             -jar $EBROOTPICARD/picard.jar SortSam \
             INPUT=~{inputBam} \
             OUTPUT=~{outputBamBasename}.bam \
@@ -111,14 +114,15 @@ task MarkDuplicates {
         String outputBamBasename
         String outputMetrics
         String picardModule = "picard"
-        Int? memoryGb = "5"
+        Int memoryGb = "15"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
         Int disk = ceil(size(inputBams, "M")*1.2)
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
       ml ~{picardModule}
-      java -Xmx4g -jar $EBROOTPICARD/picard.jar \
+      java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
       MarkDuplicates \
       INPUT=~{sep=' INPUT=' inputBams} \
       OUTPUT=~{outputBamBasename}.bam \
@@ -147,14 +151,15 @@ task MergeSamFiles {
         Array[File] inputBams
         String outputBamBasename
         String picardModule = "picard"
-        Int? memoryGb = "5"
+        Int memoryGb = "5"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
         Int disk = 1 + ceil(size(inputBams, "G") * 2.1)
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
         ml ~{picardModule}
-        java -Xmx4g -XX:ParallelGCThreads=4 -jar $EBROOTPICARD/picard.jar MergeSamFiles \
+        java -Xmx~{javaXmxMemoryMb}m -XX:ParallelGCThreads=4 -jar $EBROOTPICARD/picard.jar MergeSamFiles \
             INPUT=~{sep=' INPUT=' inputBams} \
             SORT_ORDER=coordinate \
             CREATE_INDEX=true \
@@ -183,7 +188,8 @@ task SplitAndPadIntervals {
         Int padding = 150
         Int targetScatter = 50
         String picardModule = "picard"
-        Int? memoryGb = "4"
+        Int memoryGb = "5"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputIntervalListFile, "G")) * 120
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
@@ -191,7 +197,7 @@ task SplitAndPadIntervals {
         ml ~{picardModule}
         #mkdir -p ~{outputPrefix}
 
-        java -Xmx4g -jar $EBROOTPICARD/picard.jar \
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
         IntervalListTools \
         INPUT="~{inputIntervalListFile}" \
         OUTPUT="padded_list.interval_list" \
@@ -202,7 +208,7 @@ task SplitAndPadIntervals {
 
         mkdir -p ~{outputPrefix}_scatter
         mkdir -p scatter_list
-        java -Xmx4g -jar $EBROOTPICARD/picard.jar \
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
         IntervalListTools \
         INPUT="~{inputIntervalListFile}" \
         OUTPUT="scatter_list" \
