@@ -102,6 +102,7 @@ workflow FastqToBam {
                 sampleName = sample.name, 
                 platform = rg.platform,
                 platformUnit = rg.run + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
+                libraryName = select_first([rg.library,sample.name + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) ]),
                 readGroupName = rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
                 outputUnalignedBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned.bam",
         }

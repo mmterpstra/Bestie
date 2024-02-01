@@ -18,11 +18,11 @@ struct ReadGroup {
     #    M identifies a unique molecular index read
     #    S identifies a set of bases that should be skipped or ignored
 
-    String? readStructure1
+    String? readStructureFastq1
     #default +T
-    String? readStructure2
+    String? readStructureFastq2
     #default +M 
-    String? readStructureUmi 
+    String? readStructureFastqUmi 
 
     #usually assume library is approximated by sample_barcode1(+barcode2) if not here is your parameter to overwrite
     String? library
