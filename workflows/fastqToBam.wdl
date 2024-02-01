@@ -157,7 +157,7 @@ workflow FastqToBam {
             input: 
                 picardModule = picardModule,
                 inputBam = mergeBySample.bam,
-                outputBamBasename = sample.name + '_umi_sort',
+                outputBamBasename = sample.name + '_notduplicatemarked_sorted',
         }
         call qc.bamQualityControl as bamQualityControlUnMarked {
         #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
@@ -224,7 +224,7 @@ workflow FastqToBam {
         input: 
             picardModule = picardModule,
             inputBam = markDups.bam,
-            outputBamBasename = sample.name + '_sort'
+            outputBamBasename = sample.name + '_markdup_sort'
             
     }
     call qc.bamQualityControl as bamQualityControl {
@@ -234,7 +234,7 @@ workflow FastqToBam {
             reference = reference,
             inputBam = sortBam.bam,
             inputBai = sortBam.bai,
-            outputPrefix =  sample.name + '_qc',
+            outputPrefix =  sample.name + '_markdup_sort_qc',
             targetIntervalList = targetIntervalList,
             byReadGroup = true
     }
@@ -271,7 +271,7 @@ workflow FastqToBam {
                 reference = reference,
                 inputBam = applyBQSR.bam,
                 inputBai = applyBQSR.bai,
-                outputPrefix =  sample.name + '_qc',
+                outputPrefix =  sample.name + '_recalibrated_qc',
                 targetIntervalList = targetIntervalList,
                 byReadGroup = true
         }

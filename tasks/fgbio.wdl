@@ -5,7 +5,7 @@ task FastqToUnmappedBam {
         File inputFastq1
         File? inputFastq2
         File? inputUmiFastq1
-
+        String readStr
         Int memoryGb = "1"
         Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         String fgbioModule = "fgbio"
@@ -21,7 +21,7 @@ task FastqToUnmappedBam {
     }
     command {
         set -e
-        module load ~{picardModule} && \
+        module load ~{fgbioModule} && \
         java -Xmx~{javaXmxMemoryMb}m \
             -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar FastqToBam \
             --input ~{inputFastq1} ~{inputFastq2} ~{inputUmiFastq1} \
@@ -29,7 +29,7 @@ task FastqToUnmappedBam {
             --umi-tag RX \
             --umi-qual-tag RQ \
             --sample ~{sampleName} \
-            --library ~{sampleName}_~{barcode1}+~{barcode2} \
+            --library ~{library} \
             --platform ~{platform} \
             --run-date "$(date --rfc-3339=date)" \
             --platform-unit ~{platformUnit} \

@@ -9,7 +9,21 @@ struct ReadGroup {
     String identifier
     File fastq1
     File? fastq2
-    File? fastq_umi
+    File? fastqUmi
+    
+    #docs for read structures: https://fulcrumgenomics.github.io/fgbio/tools/1.5.1/ExtractUmisFromBam.html
+    # Read structures are made up of <number><operator> pairs much like the CIGAR string in BAM files. Four kinds of operators are recognized:
+    #    T identifies a template read
+    #    B identifies a sample barcode read
+    #    M identifies a unique molecular index read
+    #    S identifies a set of bases that should be skipped or ignored
+
+    String? readStructure1
+    #default +T
+    String? readStructure2
+    #default +M 
+    String? readStructureUmi 
+
     #usually assume library is approximated by sample_barcode1(+barcode2) if not here is your parameter to overwrite
     String? library
     #[ATCGN]{6+}
