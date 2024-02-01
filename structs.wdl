@@ -9,8 +9,12 @@ struct ReadGroup {
     String identifier
     File fastq1
     File? fastq2
-    File? fastq_umi
+    File? fastqUmi
+    String? readStructureFastq1
+    String? readStructureFastq2
+    String? readStructureFastqUmi
     #[ATCGN]{6+}
+    String library
     String barcode1
     String? barcode2
     #001 or something

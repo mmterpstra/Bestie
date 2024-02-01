@@ -8,6 +8,7 @@ task FastqToUnmappedBam {
         Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         String picardModule = "picard"
         String sampleName = "test"
+        String libraryName
         String readgroup = "A"
         String platform = "ILLUMINA"
         String platformUnit = "run_barcode.lane"
@@ -24,6 +25,7 @@ task FastqToUnmappedBam {
             FASTQ=~{inputFastq1} \
             ~{"FASTQ2=" + inputFastq2} \
             SAMPLE_NAME=~{sampleName} \
+            ~{"LIBRARY_NAME=" + libraryName}\
             PLATFORM=~{platform} \
             RUN_DATE="$(date --rfc-3339=date)" \
             PLATFORM_UNIT=~{platformUnit} \
