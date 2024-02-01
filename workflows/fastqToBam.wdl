@@ -297,6 +297,7 @@ workflow FastqToBam {
         File qcZip = bamQualityControl.qcZip
         File? preUmiQcZip = bamQualityControlUnMarked.qcZip
         File? umiQcZip = bamQualityControlConsensusReads.qcZip
+        File? bqsrQcZip = recalibratedBamQualityControl.qcZip
         File? umiFamilySizeHistogram = groupReadsByUmi.familySizeHistogram
         File? basequalityRecalibratonReport = bqsr.recalibrationReport
     }

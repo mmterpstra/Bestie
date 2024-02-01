@@ -10,6 +10,8 @@ struct ReadGroup {
     File fastq1
     File? fastq2
     File? fastq_umi
+    #usually assume library is approximated by sample_barcode1(+barcode2) if not here is your parameter to overwrite
+    String? library
     #[ATCGN]{6+}
     String barcode1
     String? barcode2

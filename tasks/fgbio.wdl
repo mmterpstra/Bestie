@@ -1,5 +1,51 @@
 version 1.0
 
+task FastqToUnmappedBam {
+    input {
+        File inputFastq1
+        File? inputFastq2
+        File? inputUmiFastq1
+
+        Int memoryGb = "1"
+        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        String fgbioModule = "fgbio"
+        String sampleName = "test"
+        String readgroup = "A"
+        String library = "sample_barcode1+barcode2"
+        String platform = "ILLUMINA"
+        String platformUnit = "run_barcode.lane"
+        String readGroupName = "flowcell_run_barcode.lane"
+        #String? platformModel = "NextSeq?"    
+        String outputUnalignedBam = "unaligned_test.sam"
+        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 120
+    }
+    command {
+        set -e
+        module load ~{picardModule} && \
+        java -Xmx~{javaXmxMemoryMb}m \
+            -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar FastqToBam \
+            --input ~{inputFastq1} ~{inputFastq2} ~{inputUmiFastq1} \
+            --read-structures +T +T +M \
+            --umi-tag RX \
+            --umi-qual-tag RQ \
+            --sample ~{sampleName} \
+            --library ~{sampleName}_~{barcode1}+~{barcode2} \
+            --platform ~{platform} \
+            --run-date "$(date --rfc-3339=date)" \
+            --platform-unit ~{platformUnit} \
+            --output ~{outputUnalignedBam}
+    }
+
+    output {
+        File unalignedBam = outputUnalignedBam
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,1024])
+        timeMinutes: timeMinutes
+    }
+}
+
 task ExtractUmisFromBam {
     input {
         File inputBam
