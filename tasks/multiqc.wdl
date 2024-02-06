@@ -24,9 +24,9 @@ task MultiQC {
             (while read FILE; do 
                 if [ -e "$FILE" ]; then
                     if [[ $FILE == *.zip ]]; then
-                        mkdir -p "./unzip/$(basename $FILE .zip)"
+                        mkdir -p "./unzip/${DIRNO}_$(basename $FILE .zip)"
                         ( cd "./unzip/${DIRNO}_$(basename $FILE .zip)" && unzip "$FILE" &>>./unzip.log) || \
-                            (>&2 echo "## ERROR ## 'cd $PWD/unzip/${FILENO}_$(basename $FILE .zip)' or 'unzip $FILE' failed log in './unzip.log'." && exit 1)
+                            (>&2 echo "## ERROR ## 'cd $PWD/unzip/${DIRNO}_$(basename $FILE .zip)' or 'unzip $FILE' failed log in './unzip.log'." && exit 1)
                         find "./unzip/${DIRNO}_$(basename $FILE .zip)" -type f
                     else
                         echo "$FILE"
