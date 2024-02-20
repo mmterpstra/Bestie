@@ -102,6 +102,7 @@ workflow FastqToBam {
                 sampleName = sample.name, 
                 platform = rg.platform,
                 platformUnit = rg.run + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
+                libraryName = select_first([rg.library,sample.name + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) ]),
                 readGroupName = rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
                 outputUnalignedBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned.bam",
         }
@@ -157,7 +158,7 @@ workflow FastqToBam {
             input: 
                 picardModule = picardModule,
                 inputBam = mergeBySample.bam,
-                outputBamBasename = sample.name + '_umi_sort',
+                outputBamBasename = sample.name + '_notduplicatemarked_sorted',
         }
         call qc.bamQualityControl as bamQualityControlUnMarked {
         #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
@@ -198,7 +199,6 @@ workflow FastqToBam {
                 umiTags = runTwistUmi
         }
         call qc.bamQualityControl as bamQualityControlConsensusReads {
-        #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
             input:
             gatkModule = gatkModule,
             picardModule = picardModule,
@@ -225,8 +225,19 @@ workflow FastqToBam {
         input: 
             picardModule = picardModule,
             inputBam = markDups.bam,
-            outputBamBasename = sample.name + '_sort'
+            outputBamBasename = sample.name + '_markdup_sort'
             
+    }
+    call qc.bamQualityControl as bamQualityControl {
+        input:
+            gatkModule = gatkModule,
+            picardModule = picardModule,
+            reference = reference,
+            inputBam = sortBam.bam,
+            inputBai = sortBam.bai,
+            outputPrefix =  sample.name + '_markdup_sort_qc',
+            targetIntervalList = targetIntervalList,
+            byReadGroup = true
     }
     #optional indelrealignment
     #wip or skip
@@ -254,20 +265,19 @@ workflow FastqToBam {
                 gatkModule=gatkModule,
                 outputBamBasename=sample.name + '_recalibrated'
         }
-    }        
-    #run qc
-    call qc.bamQualityControl as bamQualityControl {
-    #call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
-        input:
-            gatkModule = gatkModule,
-            picardModule = picardModule,
-            reference = reference,
-            inputBam = sortBam.bam,
-            inputBai = sortBam.bai,
-            outputPrefix =  sample.name + '_qc',
-            targetIntervalList = targetIntervalList,
-            byReadGroup = true
-    }
+        call qc.bamQualityControl as recalibratedBamQualityControl {
+            input:
+                gatkModule = gatkModule,
+                picardModule = picardModule,
+                reference = reference,
+                inputBam = applyBQSR.bam,
+                inputBai = applyBQSR.bai,
+                outputPrefix =  sample.name + '_recalibrated_qc',
+                targetIntervalList = targetIntervalList,
+                byReadGroup = true
+        }
+
+    }            
     
     File bam = if runBaseQualityRecalibration then select_first([applyBQSR.bam,prebqsrBam]) else prebqsrBam
     File bai = if runBaseQualityRecalibration then select_first([applyBQSR.bai,prebqsrBai]) else prebqsrBai
@@ -288,6 +298,8 @@ workflow FastqToBam {
         File qcZip = bamQualityControl.qcZip
         File? preUmiQcZip = bamQualityControlUnMarked.qcZip
         File? umiQcZip = bamQualityControlConsensusReads.qcZip
+        File? bqsrQcZip = recalibratedBamQualityControl.qcZip
+        File? umiFamilySizeHistogram = groupReadsByUmi.familySizeHistogram
         File? basequalityRecalibratonReport = bqsr.recalibrationReport
     }
 

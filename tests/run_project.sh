@@ -76,16 +76,21 @@ ml purge
     perl -i.bak -wpe 's?.sampleJson": ".*",?.sampleJson": "'$RUNROOT/sample.json'",?g' $RUNROOT/inputs.json
 
     #start workflow
-    ml cromwell/79-Java-11|| ml cromwell 
+    ml cromwell/79-Java-11|| ml cromwell
+    
     set -x
     java -Xmx8g -Dconfig.file=$CONFIG \
         -jar $EBROOTCROMWELL/womtool.jar validate \
         $WORKFLOWROOT/$PIPELINE \
         -i $RUNROOT/inputs.json 
     cd $RUNROOT
+    
+    echo "bash ${SCRIPTCALL}," $(git log -1 || echo "$(pwd);$(date)" ) | head -n 1  >> "$RUNROOT/nohup_"$(date --rfc-3339=date)".out"
+
     nohup java -Xmx8g -Dconfig.file=$CONFIG \
         -jar $EBROOTCROMWELL/cromwell.jar run \
         $WORKFLOWROOT/$PIPELINE \
         -i $RUNROOT/inputs.json \
-        --workflow-root $WORKFLOWROOT 
+        --workflow-root $WORKFLOWROOT &>> "$RUNROOT/nohup_"$(date --rfc-3339=date)".out"
+    echo "watch log in $RUNROOT/nohup_"$(date --rfc-3339=date)".out"
 )
