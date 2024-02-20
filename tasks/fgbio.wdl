@@ -137,7 +137,7 @@ task CallDuplexConsensusReads {
             --error-rate-pre-umi=45 \
             --error-rate-post-umi=30 \
             --min-input-base-quality=30 \
-            --min-reads 2 1 1
+            --min-reads 3 3 3
     }
 
     output {
