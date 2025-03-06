@@ -7,6 +7,9 @@ import "tasks/cutadapt.wdl" as cutadapt
 import "tasks/fastqc.wdl" as fastqc
 import "tasks/picard.wdl" as picard
 import "tasks/fgbio.wdl" as fgbio
+
+import "tasks/marktrimming.wdl" as marktrim
+
 import "tasks/alignment.wdl" as align
 import "tasks/gatk.wdl" as gatk
 import "tasks/ichorcna.wdl" as ichorcna
@@ -28,13 +31,14 @@ workflow FastqToVariants {
         String hmmcopyutilsModule = "hmmcopy_utils/5911bf69f1-foss-2022a"
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String fgbioModule = "fgbio/1.5.1"
+        String marktrimmingModule = "marktrimming/0.0.2-GCC-12.2.0"
         Boolean runCutadapt = false 
         String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Boolean runTwistUmi = false
         Boolean runReadcounter = true
-        Boolean runBaseQualityRecalibration = true
+        Boolean runBaseQualityRecalibration = false
         File sampleJson
         Reference reference
         IndexedFile dbsnp
@@ -71,6 +75,7 @@ workflow FastqToVariants {
                 fgbioModule = fgbioModule,
                 runCutadapt = runCutadapt,
                 cutadaptModule = cutadaptModule,
+                marktrimmingModule = marktrimmingModule,
                 read1Adapters = read1Adapters,
                 read2Adapters = read2Adapters,
                 runBaseQualityRecalibration = runBaseQualityRecalibration,
@@ -80,7 +85,7 @@ workflow FastqToVariants {
                 dbsnp = dbsnp,
                 knownSites = knownSites,
                 targetIntervalList = targetIntervalList,
-                runTwistUmi = runTwistUmi
+                runTwistUmi = runTwistUmi,
         }
         #Does not work: sample.alignedReads = fqToBam. That is why I added this task to serialise/deserialise the json object and add the variables.
         call common.AddAlignedReadsToSampleDescriptor as addBamToSample {

@@ -15,7 +15,10 @@
                     "sequencer":"SM123",
                     "platform": "ILLUMINA",
                     "flowcell": "HXXXXXXXXXXXD",
-                    "sequencing_center": "test data from wgsim"
+                    "sequencing_center": "test data from wgsim",
+                    "extractUmisFromReadNames": false,
+                    "readStructureFastq1": "5M2S+T",
+                    "readStructureFastq2": "5M2S+T"
                 }
             ]
         },
@@ -35,7 +38,10 @@
                     "sequencer": "SM123",
                     "platform": "ILLUMINA",
                     "flowcell": "HXXXXXXXXXXXD",
-                    "sequencing_center": "test"
+                    "sequencing_center": "test",
+                    "extractUmisFromReadNames": false,
+                    "readStructureFastq1": "+T",
+                    "readStructureFastq2": "+T"
                 }
             ]
         }

@@ -22,7 +22,8 @@ struct ReadGroup {
     #default +T
     String? readStructureFastq2
     #default +M 
-    String? readStructureFastqUmi 
+    String? readStructureFastqUmi
+    Boolean? extractUmisFromReadNames
 
     #usually assume library is approximated by sample_barcode1(+barcode2) if not here is your parameter to overwrite
     String? library
@@ -49,8 +50,10 @@ struct ReadGroup {
 
 struct SampleDescriptor {
     String name
+    #for smRNA mirDeep2 compatibility
     String? threeLetterName
-    String? control
+    #for designating as tumor: if the normal string is present then it is a tumor sample and the normal is linked normal sample name
+    String? normal 
     String? gender
     Boolean? runTwistUmi
     IndexedFile? alignedReads
@@ -60,6 +63,13 @@ struct SampleDescriptor {
 
 struct SampleConfig {
     Array[SampleDescriptor] samples
+}
+#wip maybe in future analysis workflows 
+struct TumorNormalSampleConfig {
+    #This should be treated as a single patient config maybe better parameterisation to be added
+    Array[SampleDescriptor] panelNormals
+    Array[SampleDescriptor] normals
+    Array[SampleDescriptor] tumors
 }
 
 struct BwaIndex {

@@ -1,16 +1,9 @@
 {
-    "BamsToVariants.sampleJson": "raw/fastq/samples.json",
+    "BamsToVariants.sampleJson": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/variantstoBam/sample.json",
     "BamsToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
     "BamsToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
     "BamsToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
-    "BamsToVariants.referenceBwaIndex": {
-      "fastaFile": "data/ref/ref.fasta",
-      "ambFile": "data/ref/ref.fasta.amb",
-      "annFile": "data/ref/ref.fasta.ann",
-      "bwtFile": "data/ref/ref.fasta.bwt",
-      "pacFile": "data/ref/ref.fasta.pac",
-      "saFile": "data/ref/ref.fasta.sa" 
-    },
+    "BamsToVariants.bcftoolsModule": "BCFtools/1.21-GCC-12.2.0",
     "BamsToVariants.reference": {
       "fasta": "data/ref/ref.fasta",
       "dict": "data/ref/ref.dict",
@@ -20,9 +13,13 @@
       "file" : "data/ref/dbsnp.vcf",
       "index" : "data/ref/dbsnp.vcf.idx" 
     },
-    "BamsToVariants.cosmic": {
-      "file" : "data/ref/cosmic.vcf",
-      "index" : "data/ref/cosmic.vcf.idx" 
+    "BamsToVariants.panelOfNormalsVcf": {
+      "file" : "data/ref/panel_of_normals.vcf",
+      "index" : "data/ref/panel_of_normals.vcf.idx" 
+    },
+    "BamsToVariants.gnomadOnlyAfVcf": {
+      "file" : "data/ref/gnomad_af_only.vcf",
+      "index" : "data/ref/gnomad_af_only.vcf.idx" 
     },
     "BamsToVariants.knownSites": 
       [
@@ -39,4 +36,3 @@
     "BamsToVariants.targetIntervalList": "data/ref/targets.interval_list",
     "BamsToVariants.targetScatter": 3
 }
-  

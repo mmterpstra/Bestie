@@ -10,6 +10,8 @@ import "../tasks/fgbio.wdl" as fgbio
 import "../tasks/alignment.wdl" as align
 import "../tasks/gatk.wdl" as gatk
 import "../tasks/ichorcna.wdl" as ichorcna
+import "../tasks/marktrimming.wdl" as marktrim
+
 import "../workflows/qc.wdl" as qc
 
 workflow FastqToBam {
@@ -22,6 +24,7 @@ workflow FastqToBam {
         #String hmmcopyutilsModule = "hmmcopy_utils/5911bf69f1-foss-2022a"
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String fgbioModule = "fgbio/1.3.0"
+        String marktrimmingModule = "marktrimming/0.0.2-GCC-12.2.0"
         Boolean runCutadapt = false 
         String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
@@ -55,6 +58,13 @@ workflow FastqToBam {
                     outputPath = sample.name + "_" + rg.flowcell + "_" + rg.identifier + "_R2.fastq.gz"
             }
         }
+        if (defined(rg.fastqUmi)) {
+            call common.CreateLink as getfastqUmi {
+                input:
+                    inputFile = select_first([rg.fastqUmi]),
+                    outputPath = sample.name + "_" + rg.flowcell + "_" + rg.identifier + "_umi.fastq.gz"
+            }
+        }
         call fastqc.FastQCPaired as fastqc {
             input:
                 fastqcModule = fastqcModule,
@@ -63,65 +73,133 @@ workflow FastqToBam {
                 outputFastqcBasename = sample.name + "_" + rg.flowcell + "_" + rg.identifier
         }
         #trim adapters
-        call trimgalore.TrimGalore as adaptertrim {
+        
+        #if(runCutadaptSample) {
+        #    call cutadapt.Cutadapt as cutadaptPe {
+        #        input:
+        #            cutadaptModule = cutadaptModule,
+        #            inputFastq1 = getfastq1.link,
+        #            outputFastq1 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R1.fastq.gz",
+        #            inputFastq2 = getfastq2.link,
+        #            outputFastq2 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R2.fastq.gz",
+        #            read1Adapters = read1Adapters,
+        #            read2Adapters = read2Adapters
+        #    }
+        #    call fastqc.FastQCPaired as fastqcCutadapt {
+        #        input:
+        #            fastqcModule = fastqcModule,
+        #            inputFastq = getfastq1.link,
+        #            inputFastq2 = getfastq2.link,
+        #            outputFastqcBasename = sample.name + "_cutadapt_" + rg.flowcell + "_" + rg.identifier
+        #    }
+        #}        
+        ##to samconversion
+        
+        #call picard.FastqToUnmappedBam as fastqToUnmappedBam {
+        #    input:
+        #        inputFastq1 = select_first([cutadaptPe.fastq1,adaptertrim.fastq1]),
+        #        inputFastq2 = select_first([cutadaptPe.fastq2,adaptertrim.fastq2]),
+        #        picardModule = picardModule,
+        #        sampleName = sample.name, 
+        #        platform = rg.platform,
+        #        platformUnit = rg.run + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
+        #        libraryName = select_first([rg.library,sample.name + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) ]),
+        #        readGroupName = rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
+        #        outputUnalignedBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned.bam",
+        #}
+        
+        #there should be more logic to catchall here but atm idk
+        Boolean extractUmisFromReadNames = if (defined(rg.extractUmisFromReadNames)) then select_first([rg.extractUmisFromReadNames,false]) else false
+        
+        call fgbio.FastqToUnmappedBam as fgbioFastqToUnmappedBam {
             input:
                 inputFastq1 = getfastq1.link,
                 inputFastq2 = getfastq2.link,
+                fgbioModule = fgbioModule,
+                sampleName = sample.name, 
+                platform = rg.platform,
+                platformUnit = rg.run + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
+                library = select_first([rg.library,sample.name + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) ]),
+                readgroup = rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
+                outputUnalignedBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned.bam",
+                inputUmiFastq1 = getfastqUmi.link,
+                readStructureFastq1 = rg.readStructureFastq1,
+                readStructureFastq2 = rg.readStructureFastq2,
+                readStructureFastqUmi = rg.readStructureFastqUmi,
+                extractUmisFromReadNames = rg.extractUmisFromReadNames,
+                sort = true
+        }
+        #I cannot be certain they have same sorting orders for downstream processing so again
+        call picard.SortSam as sortUbam {
+            input: 
+                picardModule = picardModule,
+                memoryGb = 4,
+                inputBam = fgbioFastqToUnmappedBam.unalignedBam,
+                outputBamBasename = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_qsorted",
+                sortOrder = "queryname"
+        }
+        #dump sorted bam reads for trimming for alternate cutadapt workflow
+        #outputs ubamToSortedFastq.fastq1gz and select_first(ubamToSortedFastq.fastq2gz)
+        call picard.SamToFastq as ubamToSortedFastq {
+            input:
+                inputBam = sortUbam.bam,
+                picardModule = picardModule,
+                outputFastqDirBase = rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane 
+        }
+        call trimgalore.TrimGalore as adaptertrim {
+            input:
+                inputFastq1 = ubamToSortedFastq.fastq1gz,
+                inputFastq2 = select_first([ubamToSortedFastq.fastq2gz]),
+                minimumLength = 0,
                 outputFastq1 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_trim_R1.fastq.gz",
                 outputFastq2 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_trim_R2.fastq.gz",
                 memoryGb = 1,
                 trimgaloreModule = trimgaloreModule
         }
         if(runCutadaptSample) {
-                call cutadapt.Cutadapt as cutadaptPe {
-                    input:
-                        cutadaptModule = cutadaptModule,
-                        inputFastq1 = getfastq1.link,
-                        outputFastq1 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R1.fastq.gz",
-                        inputFastq2 = getfastq2.link,
-                        outputFastq2 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R2.fastq.gz",
-                        read1Adapters = read1Adapters,
-                        read2Adapters = read2Adapters
-                }
+            call cutadapt.Cutadapt as cutadaptPe {
+                input:
+                    cutadaptModule = cutadaptModule,
+                    minimumLength = 0,
+                    inputFastq1 = ubamToSortedFastq.fastq1gz,
+                    outputFastq1 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R1.fastq.gz",
+                    inputFastq2 = select_first([ubamToSortedFastq.fastq2gz]),
+                    outputFastq2 = sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R2.fastq.gz",
+                    read1Adapters = read1Adapters,
+                    read2Adapters = read2Adapters
+            }
             call fastqc.FastQCPaired as fastqcCutadapt {
                 input:
                     fastqcModule = fastqcModule,
-                    inputFastq = getfastq1.link,
-                    inputFastq2 = getfastq2.link,
-                    outputFastqcBasename = sample.name + "_cutadapt_" + rg.flowcell + "_" + rg.identifier
+                    inputFastq = cutadaptPe.fastq1,
+                    inputFastq2 =select_first([cutadaptPe.fastq2]),
+                    outputFastqcBasename = sample.name + "_cutadapt_" + rg.flowcell + "_" + rg.identifier 
             }
-        }        
-        #align
-        ##to samconversion
-        
-        call picard.FastqToUnmappedBam as fastqToUnmappedBam {
+            
+        }
+        call marktrim.MarkTrimming as markTrimming {
             input:
-                inputFastq1 = select_first([cutadaptPe.fastq1,adaptertrim.fastq1]),
-                inputFastq2 = select_first([cutadaptPe.fastq2,adaptertrim.fastq2]),
-                picardModule = picardModule,
-                sampleName = sample.name, 
-                platform = rg.platform,
-                platformUnit = rg.run + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
-                libraryName = select_first([rg.library,sample.name + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) ]),
-                readGroupName = rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane,
-                outputUnalignedBam = rg.run  + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned.bam",
-        }
-        
-        if (runTwistUmiSample) {
-            call fgbio.ExtractUmisFromBam as ExtractUmis {
-                input:
-                    fgbioModule=fgbioModule,
-                    inputBam=fastqToUnmappedBam.unalignedBam,
-                    outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi"
-            }
-        }
+                marktrimmingModule = marktrimmingModule,
+                inputUbam = sortUbam.bam,
+                cutadaptFastq1 = select_first([cutadaptPe.fastq1,adaptertrim.fastq1]),
+                cutadaptFastq2 = select_first([cutadaptPe.fastq2,adaptertrim.fastq2]),
+                outputTrimmedBamBase = sample.name + "_cutadapt_" + rg.flowcell + "_" + rg.identifier
+        }    
+        #if (runTwistUmiSample) {
+        #    call fgbio.ExtractUmisFromBam as ExtractUmis {
+        #        input:
+        #            fgbioModule=fgbioModule,
+        #            inputBam=fgbioFastqToUnmappedBam.unalignedBam,
+        #            outputBamBasename=rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane + "_unaligned_umi"
+        #    }
+        #}
         #note: consider adding a step to make the trimgalore compatible with the best practices MarkIlluminaAdapters workflow. Though some (old) software just expect the adapters to be removed and not marked.  
 
         ##map with bwa
 
         call align.bwaAlignBam as bwaAlignment {
             input:
-                inputUnalignedBam = select_first([ExtractUmis.bam,fastqToUnmappedBam.unalignedBam]),
+                inputUnalignedBam = select_first([markTrimming.bam,sortUbam.bam]),
                 referenceBwaIndex = referenceBwaIndex,
                 reference = reference,
                 bwaModule = bwaModule,
@@ -167,7 +245,7 @@ workflow FastqToBam {
             picardModule = picardModule,
             reference = reference,
             inputBam = sortMergedSampleBam.bam,
-            inputBai = sortMergedSampleBam.bai,
+            inputBai = select_first([sortMergedSampleBam.bai]),
             outputPrefix =  sample.name + '_notduplicatemarked_qc',
             targetIntervalList = targetIntervalList,
             byReadGroup = false
@@ -186,9 +264,17 @@ workflow FastqToBam {
                 inputBam = groupReadsByUmi.bam,
                 outputBamBasename = sample.name + '_duplex_called',
         }
+        call picard.SortSam as sortDuplexBam {
+        input: 
+            picardModule = picardModule,
+            inputBam = callDuplexConsensusReads.bam,
+            outputBamBasename = sample.name + '_duplex_called_queryname_sort',
+            sortOrder = "queryname"
+        }
+        #optional filterconsensusreads
         call align.bwaAlignBam as bwaDuplexConsensusAlignment {
             input:
-                inputUnalignedBam = callDuplexConsensusReads.bam,
+                inputUnalignedBam = sortDuplexBam.bam,
                 referenceBwaIndex = referenceBwaIndex,
                 reference = reference,
                 bwaModule = bwaModule,
@@ -211,7 +297,7 @@ workflow FastqToBam {
         }
 
     }
-    #remove pcr duplicates
+    #remove pcr duplicates // optical
     call picard.MarkDuplicates as markDups {
         input:
             picardModule = picardModule,
@@ -234,7 +320,7 @@ workflow FastqToBam {
             picardModule = picardModule,
             reference = reference,
             inputBam = sortBam.bam,
-            inputBai = sortBam.bai,
+            inputBai = select_first([sortBam.bai]),
             outputPrefix =  sample.name + '_markdup_sort_qc',
             targetIntervalList = targetIntervalList,
             byReadGroup = true
@@ -245,7 +331,7 @@ workflow FastqToBam {
     #optional basequality score recalibration
 
     File prebqsrBam = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bam,sortBam.bam]) else sortBam.bam
-    File prebqsrBai = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bai,sortBam.bai]) else sortBam.bai
+    File prebqsrBai = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bai,sortBam.bai]) else select_first([sortBam.bai])
     if(runBaseQualityRecalibration){
         call gatk.BaseQualityScoreRecalibration as bqsr {
             input:
@@ -305,6 +391,6 @@ workflow FastqToBam {
 
     meta {
         author: "MMTerpstra"
-        description: "This is the single samples fastqs to aligned bam workflow."
+        description: "This is the single sample fastq to aligned bam workflow."
     }
 }

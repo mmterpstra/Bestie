@@ -8,7 +8,8 @@
     "FastqToVariants.gatkModule": "GATK/4.3.0.0-GCCcore-11.3.0-Java-11 R/4.2.1-foss-2022a",
     "FastqToVariants.samtoolsModule": "SAMtools/1.17-GCC-12.2.0",
     "FastqToVariants.hmmcopyutilsModule": "hmmcopy_utils/5911bf69f1-foss-2022a",
-    "FastqToVariants.fgbioModule":"fgbio/1.5.1",
+    "FastqToVariants.fgbioModule":"fgbio/2.2.1-Java-8-LTS",
+    "FastqToVariants.marktrimmingModule": "marktrimming/0.0.2-GCC-12.2.0",
     "FastqToVariants.referenceBwaIndex": {
       "fastaFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta",
       "ambFile": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.amb",
