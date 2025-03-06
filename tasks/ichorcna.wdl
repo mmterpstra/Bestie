@@ -59,6 +59,7 @@ task HmmcopyReadcounter {
                 --exclude-flags 2048 \
                 ~{inputBam} \
             >  ~{outputPrefix}"_filtered.bam"
+            # The next step needs samtools style index location (.bam.bai)
             samtools index ~{outputPrefix}"_filtered.bam"
         )
         (
@@ -74,6 +75,7 @@ task HmmcopyReadcounter {
             --chromosome "$CHROMOSOMES" \
             ~{outputPrefix}"_filtered.bam" > "~{outputPrefix}"".""~{windowkilobase}""kb.wig" 2>/dev/null
         )
+        rm -v "~{outputPrefix}""_filtered.bam" "~{outputPrefix}""_filtered.bam.bai"
     }
     
     output {

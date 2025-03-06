@@ -16,7 +16,10 @@
                     "sequencer": "SM123",
                     "platform": "ILLUMINA",
                     "flowcell": "HXXXXXXXXXXXD",
-                    "sequencing_center": "test"
+                    "sequencing_center": "test",
+                    "extractUmisFromReadNames": false,
+                    "readStructureFastq1": "+T",
+                    "readStructureFastq2": "+T"
                 },
                 {
                     "identifier": "S01",
@@ -31,7 +34,10 @@
                     "sequencer": "SM123",
                     "platform": "ILLUMINA",
                     "flowcell": "HXXXXXXXXXXXD",
-                    "sequencing_center": "test"
+                    "sequencing_center": "test",
+                    "extractUmisFromReadNames": false,
+                    "readStructureFastq1": "+T",
+                    "readStructureFastq2": "+T"
                 }
             ]
         },
@@ -51,7 +57,10 @@
                     "sequencer": "SM123",
                     "platform": "ILLUMINA",
                     "flowcell": "HXXXXXXXXXXXD",
-                    "sequencing_center": "test"
+                    "sequencing_center": "test",
+                    "extractUmisFromReadNames": false,
+                    "readStructureFastq1": "+T",
+                    "readStructureFastq2": "+T"
                 }
             ]
         }

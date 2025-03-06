@@ -1,11 +1,14 @@
 version 1.0
 
+import "../structs.wdl" as structs
+
+
 task FastqToUnmappedBam {
     input {
         File inputFastq1
         File? inputFastq2
         Int memoryGb = "1"
-        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         String picardModule = "picard"
         String sampleName = "test"
         String libraryName
@@ -16,6 +19,8 @@ task FastqToUnmappedBam {
         #String? platformModel = "NextSeq?"    
         String outputUnalignedBam = "unaligned_test.sam"
         Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 120
+        #Possible values: {unsorted, queryname, coordinate, duplicate, unknown} #
+        String sortOrder = "queryname" 
     }
     command {
         set -e
@@ -30,7 +35,8 @@ task FastqToUnmappedBam {
             RUN_DATE="$(date --rfc-3339=date)" \
             PLATFORM_UNIT=~{platformUnit} \
             READ_GROUP_NAME=~{readGroupName} \
-            OUTPUT=~{outputUnalignedBam}
+            OUTPUT=~{outputUnalignedBam} \
+            SORT_ORDER=~{sortOrder}
     }
 
     output {
@@ -47,24 +53,26 @@ task SamToFastq {
     input{
         File inputBam
         String outputFastqDirBase
-        Int memoryGb = "1"
-        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        Int memoryGb = "2"
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         String picardModule = "picard"
         Int disk = ceil(size(inputBam, "M")*2.1)
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 60
     }
     command {
         set -e
-        module load ~{picardModule} && \
-        java -Xmx~{javaXmxMemoryMb} \
-            -jar $EBROOTPICARD/picard.jar FastqToSam \
+        module load ~{picardModule} 
+        mkdir -p ~{outputFastqDirBase}
+        java -Xmx~{javaXmxMemoryMb}m \
+            -jar $EBROOTPICARD/picard.jar SamToFastq \
             INPUT=~{inputBam} \
             OUTPUT_PER_RG=true \
-            OUTPUTDIR=~{outputFastqDirBase}
+            COMPRESS_OUTPUTS_PER_RG=true \
+            OUTPUT_DIR=~{outputFastqDirBase}
     }
     output {
-        File fastq1gz = select_first(glob(outputFastqDirBase + "/*R1.fastq.gz"))
-        File? fastq2gz = select_first(glob(outputFastqDirBase + "/*R2.fastq.gz"))
+        File fastq1gz = select_first(glob(outputFastqDirBase + "/*_1.fastq.gz"))
+        File? fastq2gz = select_first(glob(outputFastqDirBase + "/*_2.fastq.gz"))
     }
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
@@ -77,13 +85,16 @@ task SortSam {
     input {
         File inputBam
         Int memoryGb = "15"
-        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         String picardModule = "picard"
         String outputBamBasename
         #String? platformModel = "NextSeq?"    
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
         Int disk = ceil(size(inputBam, "M")*2.1)
+        #Possible values: {unsorted, queryname, coordinate, duplicate, unknown} #
+        String sortOrder = "coordinate" 
     }
+    Boolean createIndex = if sortOrder=="coordinate" then true else false
     command {
         set -e
         module load ~{picardModule} && \
@@ -91,16 +102,16 @@ task SortSam {
             -jar $EBROOTPICARD/picard.jar SortSam \
             INPUT=~{inputBam} \
             OUTPUT=~{outputBamBasename}.bam \
-            SORT_ORDER="coordinate" \
-            CREATE_INDEX=true \
+            SORT_ORDER=~{sortOrder} \
+            ~{true="CREATE_INDEX=true " false="" createIndex} \
             CREATE_MD5_FILE=true \
             MAX_RECORDS_IN_RAM=300000
     }
 
     output {
         File bam = outputBamBasename + ".bam"
-        File bai = outputBamBasename + ".bai"
-        File md5 = outputBamBasename + ".bam.md5"
+        File? bai = outputBamBasename + ".bai"
+        File? md5 = outputBamBasename + ".bam.md5"
     }
 
     runtime {
@@ -116,8 +127,8 @@ task MarkDuplicates {
         String outputBamBasename
         String outputMetrics
         String picardModule = "picard"
-        Int memoryGb = "15"
-        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        Int memoryGb = 16
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
         Int disk = ceil(size(inputBams, "M")*1.2)
     }
@@ -154,7 +165,7 @@ task MergeSamFiles {
         String outputBamBasename
         String picardModule = "picard"
         Int memoryGb = "5"
-        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
         Int disk = 1 + ceil(size(inputBams, "G") * 2.1)
     }
@@ -191,7 +202,7 @@ task SplitAndPadIntervals {
         Int targetScatter = 50
         String picardModule = "picard"
         Int memoryGb = "5"
-        Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputIntervalListFile, "G")) * 120
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
@@ -235,5 +246,78 @@ task SplitAndPadIntervals {
     runtime {
         memory: select_first([memoryGb * 1024,4*1024])
         timeMinutes: timeMinutes
+    }
+}
+
+task GatherVcfs {
+    input {
+        Array[File] inputVcfs
+        String outputPrefix
+        String vcfSuffix = ".vcf.gz"
+        String picardModule = "picard"
+        Int memoryGb = "5"
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
+        Int timeMinutes = 1 + ceil(size(inputVcfs, "G")) * 60
+    }
+    command {
+        module load ~{picardModule}
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
+        GatherVcfs \
+        INPUT=~{sep=' INPUT=' inputVcfs} \
+        OUTPUT=~{outputPrefix}~{vcfSuffix} \
+    }
+    output {
+        File outputVcf = outputPrefix + vcfSuffix
+        #File outputVcfIdx = outputPrefix + vcfSuffix+ ".tbi"
+        #IndexedFile vcfOut = {
+        #  "file" : outputPrefix + vcfSuffix,
+        #  "index" : outputPrefix + vcfSuffix + ".tbi"
+        #}
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+    }
+}
+
+task SplitSamByNumberOfReads {
+    input {
+        File inputBam
+        Int memoryGb = "4"
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
+        String picardModule = "picard"
+        String samtoolsModule = "SAMtools"
+        String outputBamBaseDir
+        #50m or bigger
+        Int numberOfReads = 5000000
+        #String? platformModel = "NextSeq?"    
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = ceil(size(inputBam, "M")*2.1)
+        #Possible values: {unsorted, queryname, coordinate, duplicate, unknown} #
+        String sortOrder = "coordinate" 
+    }
+    command {
+        set -e
+        TOTALREADS=$(module load ~{samtoolsModule} && samtools view -c  ~{inputBam})
+
+        module load ~{picardModule}&& \
+        mkdir -p ~{outputBamBaseDir} && \
+        java -Xmx~{javaXmxMemoryMb}m \
+            -jar $EBROOTPICARD/picard.jar SplitSamByNumberOfReads \
+            INPUT=~{inputBam} \
+            OUTPUT=~{outputBamBaseDir} \
+            SPLIT_TO_N_READS=~{numberOfReads} \
+            TOTAL_READS_IN_INPUT=$TOTALREADS
+        
+    }
+
+    output {
+        Array[File] bams = glob(outputBamBaseDir+"/*.bam")
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024, 4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
     }
 }

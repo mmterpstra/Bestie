@@ -196,7 +196,7 @@ example for creating from scratch:
 ls *_R1.fastq.gz| perl -wne 'BEGIN{print "fq1,fq2,sampleName\n"};chomp;print \$_;s/_R1\./_R2./g; print ",\$_"; s/.*-(\\d\\d\\d)_.*/\$1/g; print ",\$_" ;print "\n"'
 END
 
-	my $samplesheetfile = shift @ARGV;
+	my $samplesheetfile = shift @ARGV or die "ERROR No samplesheet specified. $use";
 	#my $prefix = shift @ARGV;
 	warn "## ".localtime(time())." ## INFO ## $0 init with samplesheetfile='$samplesheetfile'.\n";
 	my $samplesheet = ReadSamplesheet($samplesheetfile);
@@ -551,7 +551,7 @@ sub AnnotateSamplesheet {
 			#unreadble code.I hope it works!
 			if($file =~ m/.txt.gz/){#This is very experimental should work for single end sequencing
 				$newSample -> {'reads1FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('zcat '.$newSample -> {reads1FqGz}.'|head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -dc | head -n 1');
 				my @fqheadsplit= split /[\/_\-: \@#]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
 				#@HWI-ST001_0001:1:1111:112345:12345#NNNNNN/1 for read end 1
@@ -564,9 +564,10 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads1FqGzMd5'}=Md5Sum($newSample -> {"reads1FqGz"});
 			}if($file =~ m/_R1\./){
 				$newSample -> {'reads1FqGz'} = $file;
-				#zcat $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
-				my $fqhead;@{$fqhead} = CmdRunner('zcat '.$newSample -> {reads1FqGz}.'|head -n 1');
-				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
+				# $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
+				#LH12345:12:FLOWCELLID:TILENO:1000:10000:1000:GTGTC+ACAAC 2:N:0:ANAGCCATTC+AGCTGGTGAA
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -dc | head -n 1');
+				my @fqheadsplit = split /[: \@]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'sequencerId'} = $fqheadsplit[1];
@@ -577,7 +578,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads1FqGzMd5'}=Md5Sum($newSample -> {"reads1FqGz"});
 			}elsif($file =~ m/_R2\./){
 				$newSample -> {'reads2FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('zcat '.$newSample -> {reads2FqGz}.'|head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -dc | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -589,7 +590,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads3FqGz'} = $newSample -> {reads2FqGz};	
 				$newSample -> {'reads3FqGzMd5'} = $newSample -> {reads2FqGzMd5};	
 				$newSample -> {'reads2FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('zcat '.$newSample -> {reads2FqGz}.'|head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -dc | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -599,7 +600,7 @@ sub AnnotateSamplesheet {
 			
 			}elsif($file =~ m/_umi\./){#umi probes literal no annoying R2 as umi and R2=R3
 				$newSample -> {'reads3FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('zcat '.$newSample -> {reads2FqGz}.'|head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads3FqGz}.' | gzip -dc | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -611,7 +612,7 @@ sub AnnotateSamplesheet {
 				#Future proofing
 				$newSample -> {'reads4FqGz'} = $file;
 				$newSample -> {'reads4FqGzMd5'} = Md5Sum($newSample -> {"reads4FqGz"});
-				my $fqhead;@{$fqhead} = CmdRunner('zcat '.$newSample -> {reads4FqGz}.'|head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads4FqGz}.' | gzip -dc | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -673,8 +674,8 @@ sub ReadSamplesheetIllumina {
 					#unreadble code.I hope it works!
 					if($file =~ m/_R1_0/){
 						$d{'reads1FqGz'} = $file;
-						#zcat $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
-						my $fqhead;@{$fqhead} = CmdRunner('zcat '.$d{reads1FqGz}.'|head -n 1');
+						# $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
+						my $fqhead;@{$fqhead} = CmdRunner(' '.$d{reads1FqGz}.'|head -n 1');
 						my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 						$d{'run'} = $fqheadsplit[2];
 						$d{'flowcellId'} = $fqheadsplit[3];
@@ -682,7 +683,7 @@ sub ReadSamplesheetIllumina {
 						push @lanes,  $fqheadsplit[4];#this should create an uniq list of lanes
 					}elsif($file =~ m/_R2_0/){
 						$d{'reads2FqGz'} = $file;
-						my $fqhead;@{$fqhead} = CmdRunner('zcat '.$d{reads1FqGz}.'|head -n 1');
+						my $fqhead;@{$fqhead} = CmdRunner(' '.$d{reads1FqGz}.'|head -n 1');
 						my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 						$d{'run'} = $fqheadsplit[2];
 						$d{'flowcellId'} = $fqheadsplit[3];
@@ -690,7 +691,7 @@ sub ReadSamplesheetIllumina {
 					}elsif($file =~ m/_R3_0/){#nugene/umi probs
 						$d{'reads3FqGz'} = $d{reads2FqGz};		
 						$d{'reads2FqGz'} = $file;
-						my $fqhead;@{$fqhead} = CmdRunner('zcat '.$d{reads1FqGz}.'|head -n 1');
+						my $fqhead;@{$fqhead} = CmdRunner(' '.$d{reads1FqGz}.'|head -n 1');
 						my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 						$d{'run'} = $fqheadsplit[2];
 						$d{'flowcellId'} = $fqheadsplit[3];
@@ -698,7 +699,7 @@ sub ReadSamplesheetIllumina {
 					}elsif($file =~ m/_R4_0/){
 						#Future proofing
 						$d{'reads4FqGz'} = $file;
-						my $fqhead;@{$fqhead} = CmdRunner('zcat '.$d{reads1FqGz}.'|head -n 1');
+						my $fqhead;@{$fqhead} = CmdRunner(' '.$d{reads1FqGz}.'|head -n 1');
 						my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 						$d{'run'} = $fqheadsplit[2];
 						$d{'flowcellId'} = $fqheadsplit[3];
@@ -791,9 +792,16 @@ sub SamplesheetAsJSONString {
 	my $idx = 0;
 	for my $samplename (keys(%{$h{"SAMPLENAMES"}})){
 		#die Dumper(%h);
-
+		my $threeLetterName= "S01";
+		if($h{"SAMPLENAMES"}->{$samplename} ->  [0] -> {'threeLetterName'}){
+			$threeLetterName = $h{"SAMPLENAMES"}->{$samplename} ->  [0] -> {'threeLetterName'};
+		}else{
+			$threeLetterName = chr(65+$idx%26).chr(65+floor($idx/26)%26).chr( 65+floor($idx/26/26)%26);
+			##this should work for most sample sizes
+			die "Threeletternamespace ended please consider splitting up the samples to multiple projects" if ($idx > (26*26*26-100));
+		}
 		$string.= '    {"name": "'.$h{"SAMPLENAMES"}->{$samplename} ->  [0] -> {'sampleName'}.'",
-			"threeLetterName": "MS1",
+			"threeLetterName": "'.$threeLetterName.'",
 			"readgroups" : ['."\n";
 		my $rgidx = 0;
 		for my $rg (@{$h{"SAMPLENAMES"} -> { $samplename }}){
@@ -806,21 +814,31 @@ sub SamplesheetAsJSONString {
 		#		}
 		#	}
 		#	$string.=join(",",@c)."\n";
-
+			my $barcode1 = $rg -> {'barcode'};
+			my $barcode2 = "NNNNNN";
+			if($rg -> {'barcode'} =~ m/\+/){
+				($barcode1,$barcode2) = split('\+' , $rg -> {'barcode'});
+			}
 			$string.= '    				{"identifier": "'.$rg -> {'sampleName'}.'_'.
 						$rg -> {'lane'}.'_'.$rg -> {'barcode'}.'",
 					"lane": "'.$rg -> {'lane'}.'",
-					"barcode2": "NNNNNN",
-					"fastq1": "'.$rg -> {'reads1FqGz'}.'",'."\n";
-			$string .= '                "fastq2": "'.$rg -> {'reads2FqGz'}.'",'."\n" if($rg -> {'reads2FqGz'} ne "");
+					"barcode2": "'.$barcode2.'",
+					"fastq1": "'.$rg -> {'reads1FqGz'}.'",
+					"readStructureFastq1": "+T",'."\n";
+			$string .= '					"fastq2": "'.$rg -> {'reads2FqGz'}.'",
+					"readStructureFastq2": "+T",'."\n" if($rg -> {'reads2FqGz'} ne "");
+			$string .= '					"fastqUmi": "'.$rg -> {'reads3FqGz'}.'",
+					"readStructureFastqUmi": "+M",'."\n" if($rg -> {'reads3FqGz'} ne "");
 					$string .= '					"date": "'.$rg -> {'sequencingStartDate'}.'",
-					"barcode1": "'.$rg -> {'barcode'}.'",
+					"barcode1": "'.$barcode1.'",
 					"run": "'.$rg -> {'run'}.'",
-					"platform_model" : "HiSeq2xxx",
+					"platform_model" : "illuminaSeq",
 					"sequencer":"'.$rg -> {'sequencerId'}.'",
 					"platform": "'.$rg -> {'sequencer'}.'",
 					"flowcell":"'.$rg -> {'flowcellId'}.'",
-					"sequencing_center": "undef"
+					"sequencing_center": "undef",
+					"extractUmisFromReadNames": false,
+					"runTwistUmi": false
 				}';
 			$string = $string .',' if(($rgidx+1) < scalar(@{$h{"SAMPLENAMES"} -> { $samplename }}));
 			$string .= "\n";

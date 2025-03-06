@@ -65,6 +65,7 @@ task CollapseFastq {
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 task AppendToStringArray {
     input {
         Array[String] array
@@ -75,15 +76,36 @@ task AppendToStringArray {
 
     command {
         echo "~{sep='\n' array}
-        ~{string}"
+        ~{string}" > array_string.list
     }
 
     output {
-        Array[String] outArray = read_lines(stdout())
+        Array[String] outArray = read_lines("./array_string.list")
     }
 
     runtime {
         memory: memory
+        timeMinutes: 20
+    }
+}
+
+task UniqueArray {
+    input {
+        Array[String] array        
+        Int memory = 256
+    }
+
+    command {
+        echo -n "~{sep='\n' array}"| sort -u > ./unique.list
+    }
+
+    output {
+        Array[String] outArray = read_lines("./unique.list")
+    }
+
+    runtime {
+        memory: memory
+        timeMinutes: 20
     }
 }
 
@@ -94,13 +116,13 @@ task CreateLink {
     input {
         String inputFile
         String outputPath
-
+        Boolean hardLink = false
         Int memory = 256
     }
 
     command {
         echo $PWD
-        ln -sf "~{inputFile}"  "~{outputPath}"
+        ln -~{if hardLink then "" else "s" }f "~{inputFile}"  "~{outputPath}"
     }
 
     output {
@@ -109,7 +131,7 @@ task CreateLink {
 
     runtime {
         memory: memory
-        timeMinutes: 10
+        timeMinutes: 5
     }
 }
 
@@ -120,11 +142,11 @@ task CatSampleDescriptorJson {
         Int memory = 256
     }
     command {
-        cat ${write_json(sample)}
+        cat ${write_json(sample)} > ~{sample.name}.json
     }
 
     output {
-        SampleDescriptor sampleUpdated = read_json(stdout())
+        SampleDescriptor sampleUpdated = read_json(sample.name + '.json')
     }
 
     runtime {
@@ -160,6 +182,7 @@ task ConcatenateTextFiles {
         Array[File] fileList
         String combinedFilePath
         Int memory = 256
+        Int timeMinutes = 5 + ceil(size(fileList, "G")) * 30
     }
 
     # When input and output is both compressed decompression is not needed.
@@ -178,6 +201,7 @@ task ConcatenateTextFiles {
 
     runtime {
         memory: memory
+        timeMinutes: timeMinutes
     }
 }
 task ZipFiles {
@@ -187,6 +211,7 @@ task ZipFiles {
         String outputPrefix
         Int memory = 512
         Boolean flattenArchive = true
+        Int timeMinutes = 5 + ceil(size(flatten([fileList,select_all(optionalFileList)]), "G")) * 30
     }
     
     #WIP: does not localise optional files...
@@ -220,6 +245,7 @@ task ZipFiles {
 
     runtime {
         memory: memory
+        timeMinutes: timeMinutes
     }
 }
 
@@ -253,5 +279,6 @@ task CheckModules {
 
     runtime {
         memory: memory
+        timeMinutes: 20
     }
 }

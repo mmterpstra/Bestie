@@ -1,7 +1,7 @@
-#test/data/
-This dir contains test data either validation or for input needed to run the pipeline.
+# test/data/
+This dir contains test data either validation or for input needed to run the pipeline in a super simplified form.
 
-#fastq.gz inputs
+# fastq.gz inputs
 
 Creating fastq inputs and fasta reference for analysis
 
@@ -24,7 +24,7 @@ Creating fastq inputs and fasta reference for analysis
 (ml GATK/4.2.4.1-Java-8-LTS; gatk CreateSequenceDictionary --REFERENCE tests/data/ref/ref.fasta )
 ```
 ```
-#bwa index creation
+# bwa index creation
 (ml BWA/0.7.17-GCCcore-11.3.0 &&  bwa index tests/data/ref/ref.fasta)
 #unmapped sam/bam
 (ml picard/2.26.10-Java-8-LTS && java -Xmx8g -jar $EBROOTPICARD/picard.jar FastqToSam FASTQ=tests/data/raw/fastq/reads_R1.fq.gz FASTQ2=tests/data/raw/fastq/reads_R2.fq.gz SAMPLE_NAME="SAMPLE" PLATFORM="ILLUMINA" OUTPUT=tests/data/bam/unaligned_read_pairs.bam)
@@ -68,7 +68,8 @@ Creating fastq inputs and fasta reference for analysis
         ALIGNER_PROPER_PAIR_FLAGS=true \
         ADD_PG_TAG_TO_READS=false
 )
-
+```
+```
 
 ### Create additional fastq with hom mutations 
 cat tests/data/ref/ref.fasta | \
@@ -78,4 +79,12 @@ cat tests/data/raw/fastq/S2_reads_R1.fq | perl -wne 'if($.%4==0){chomp($_);my $n
 gzip -c > tests/data/raw/fastq/S2_reads_R1.fq.gz
 cat tests/data/raw/fastq/S2_reads_R2.fq | perl -wne 'if($.%4==0){chomp($_);my $new = "";for(my $i = 0; $i < length($_); $i++){$new .= chr(sprintf("%.0f", (33+10)+(40-10)*(1-$i*$i/(length($_)*length($_)))));};$_=$new."\n";};print $_' | \
 gzip -c > tests/data/raw/fastq/S2_reads_R2.fq.gz
+```
+```
+###indexing the vcf files after enditing them
+for VCF in tests/data/ref/*.vcf; do
+    if [ ! -e ${VCF}.idx ]; then 
+        (ml GATK && gatk IndexFeatureFile --input $VCF)
+    fi
+done
 ```

@@ -6,6 +6,7 @@ task TrimGalore {
         File? inputFastq2
         String outputFastq1
         String? outputFastq2
+        String minimumLength = 20
         Int? memoryGb = 1
         Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 50
         #File? fastq_input_umi

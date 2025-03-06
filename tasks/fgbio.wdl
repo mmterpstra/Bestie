@@ -5,8 +5,7 @@ task FastqToUnmappedBam {
         File inputFastq1
         File? inputFastq2
         File? inputUmiFastq1
-        String readStr
-        Int memoryGb = "1"
+        Int memoryGb = "8"
         Int javaXmxMemoryMb = floor(memoryGb*0.95*1024)
         String fgbioModule = "fgbio"
         String sampleName = "test"
@@ -18,22 +17,45 @@ task FastqToUnmappedBam {
         #String? platformModel = "NextSeq?"    
         String outputUnalignedBam = "unaligned_test.sam"
         Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 120
+        #default +T or "5M2S+T" for twist datasets
+        String? readStructureFastq1 = "+T"
+        #default +T or "5M2S+T" for twist datasets
+        String? readStructureFastq2 = "+T"
+        #default +M when defined
+        String? readStructureFastqUmi = ""
+        Boolean? extractUmisFromReadNames = false
+        Boolean? sort = false    
     }
     command {
         set -e
-        module load ~{fgbioModule} && \
+        module load ~{fgbioModule} 
+        
+        READSTRUCTURES="~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi}"
+        UMIQUALTAG=""
+        if [[ $READSTRUCTURES == *M* ]]; then
+            if ~{true="true" false="false" extractUmisFromReadNames} ; then
+                1>&2 echo "## ERROR ## unspecified behavior: 'extract umitags from readnames' clashing with 'umi spec in readstructures'. "
+                exit 1
+            fi
+            1>&2 echo  "The readstructures contain one or more 'M'. tags. Setting umi qual tag."
+            UMIQUALTAG="--umi-qual-tag RQ "
+        fi
+        
+
         java -Xmx~{javaXmxMemoryMb}m \
             -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar FastqToBam \
             --input ~{inputFastq1} ~{inputFastq2} ~{inputUmiFastq1} \
-            --read-structures +T +T +M \
+            --read-structures ~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi} \
+            ~{true=" --extract-umis-from-read-names " false="" extractUmisFromReadNames} \
             --umi-tag RX \
-            --umi-qual-tag RQ \
+            $UMIQUALTAG \
             --sample ~{sampleName} \
             --library ~{library} \
             --platform ~{platform} \
             --run-date "$(date --rfc-3339=date)" \
             --platform-unit ~{platformUnit} \
-            --output ~{outputUnalignedBam}
+            --output ~{outputUnalignedBam} \
+            ~{true=" --sort true " false=" --sort false" sort} 
     }
 
     output {
@@ -46,6 +68,7 @@ task FastqToUnmappedBam {
     }
 }
 
+#older untested stuff below
 task ExtractUmisFromBam {
     input {
         File inputBam
@@ -56,6 +79,7 @@ task ExtractUmisFromBam {
         Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
         Int disk = ceil(size(inputBam, "M")*2.1)
     }
+    #a twist special
     command {
         set -e
         set -o pipefail
@@ -137,7 +161,7 @@ task CallDuplexConsensusReads {
             --error-rate-pre-umi=45 \
             --error-rate-post-umi=30 \
             --min-input-base-quality=30 \
-            --min-reads 3 3 3
+            --min-reads 3 2 2
     }
 
     output {

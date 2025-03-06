@@ -1,6 +1,8 @@
 # Bestie
 
-wdl based hts-analysis for slurm cluster with enviroment modules. 
+WDL based hts-analysis for slurm cluster with enviroment modules. More scalable then ever before setting discrete cpu, memory, runtimes and disk space based on input files for maximum* sheduling efficiency.
+
+> *: Always WIP due to lfs stability and edge cases.
 
 ### Goals:
 
@@ -27,6 +29,40 @@ for sampleJson see ./tests/data/raw/fastq/samples.json. See below for the most s
 ```
  java -Xmx8g -Dconfig.file=./path/to/cromwell.conf -jar ./path/to/cromwell.jar run Bestie.wdl -i inputs_integration.json
 ```
+
+#### prepping a samplesheet/json for input
+
+This first part makes a sample tsv with one readgroup per line that can be edited as needed 
+
+```
+ls /path/to/raw/fastq/*_R1.fastq.gz | perl -wne 'BEGIN{print "fq1,fq2,sampleName\n"};chomp;print $_;s/_R1./_R2./g; print ",$_"; s/.*/([\w\d]*)_.*/$1/g; print ",$_" ;print "\n"'| perl SampleSheetTool.pl reformatmin /dev/stdin > samplesheet.csv
+```
+Converts the samplesheet to json file merging readgroups to samples as needed (some text alignment issues)
+
+```
+perl SamplesheetTool jsondump samplesheet.csv > samplesheet.json
+```
+
+The next command sets up the environment in the /path/to/workflow/output_folder/ copying all the needed files and linking all the needed folders raw and runs `cromwell.jar` to execute the workflow.
+
+- This needs '-d /path/to/folder/containing/data/' usually the 'apps/' folder for me.
+- This results in outputs below  '/path/to/workflow/output_folder/' containing all the (fixupped) files needed for running the analysis.
+
+```
+fastq folders (example based on `tests/integration/run_local.sh`):
+(
+    set -ex
+    bash tests/run_project.sh \
+        -i $PWD/tests/integration/json/fastqToVariants/inputs_local.json \
+        -s samplesheet.json \
+        -w $PWD \
+        -r /path/to/workflow/output_folder/ \
+        -f /path/to/raw/fastq/ \
+        -d /path/to/folder/containing/data/
+)
+```
+
+
 
 ### How to install
 

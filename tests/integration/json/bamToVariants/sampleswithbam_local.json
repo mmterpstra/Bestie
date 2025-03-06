@@ -1,0 +1,69 @@
+{
+    "samples": [
+        {
+            "name": "MySample",
+            "normal":"MySample",
+            "readgroups": [
+                {
+                    "identifier": "S01",
+                    "lane": "L001",
+                    "barcode2": "TAAAAT",
+                    "fastq1": "data/raw/fastq//S1_reads_R1.fq.gz",
+                    "fastq2": "data/raw/fastq//S1_reads_R2.fq.gz",
+                    "date": "20220916",
+                    "barcode1": "ATTTTA",
+                    "run": "001",
+                    "platform_model": "MiSeq",
+                    "sequencer": "SM123",
+                    "platform": "ILLUMINA",
+                    "flowcell": "HXXXXXXXXXXXD",
+                    "sequencing_center": "test"
+                },
+                {
+                    "identifier": "S02",
+                    "lane": "L002",
+                    "barcode2": "TAAAAT",
+                    "fastq1": "data/raw/fastq/S2_reads_R1.fq.gz",
+                    "fastq2": "data/raw/fastq/S2_reads_R2.fq.gz",
+                    "date": "20220916",
+                    "barcode1": "ATTTTA",
+                    "run": "002",
+                    "platform_model": "MiSeq",
+                    "sequencer": "SM123",
+                    "platform": "ILLUMINA",
+                    "flowcell": "HXXXXXXXXXXXD",
+                    "sequencing_center": "test"
+                }
+            ],
+            "alignedReads": {
+                "file"  : "data/raw/bam/local/MySample_markdup_sort.bam",
+                "index" : "data/raw/bam/local/MySample_markdup_sort.bai" 
+            }
+        },
+        {
+            "name": "MySampleS2",
+            "normal":"MySample",
+            "readgroups": [
+                {
+                    "identifier": "S02",
+                    "lane": "L002",
+                    "barcode2": "TAAAAT",
+                    "fastq1": "data/raw/fastq//S2_reads_R1.fq.gz",
+                    "fastq2": "data/raw/fastq//S2_reads_R2.fq.gz",
+                    "date": "20220916",
+                    "barcode1": "ATTTTA",
+                    "run": "002",
+                    "platform_model": "MiSeq",
+                    "sequencer": "SM123",
+                    "platform": "ILLUMINA",
+                    "flowcell": "HXXXXXXXXXXXD",
+                    "sequencing_center": "test"
+                }
+            ],
+            "alignedReads": {
+                "file"  : "data/raw/bam/local/MySample2_markdup_sort.bam",
+                "index" : "data/raw/bam/local/MySample2_markdup_sort.bai" 
+            }
+        }
+    ]
+}
