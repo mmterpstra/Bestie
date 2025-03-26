@@ -314,3 +314,45 @@ task GenotypeGVCFs {
 }
 
 
+task FuncotateVcfs {
+    input{
+        IndexedFile inputVcf
+        File inputVcfsFile
+        String outputVcfBasename
+        String vcfSuffix = ".vcf.gz"
+        Reference reference
+        File funcotatorDataSourceTar
+        String gatkModule = "GATK"
+        Int memoryGb = "4"
+        Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
+        Int timeMinutes = 1 + ceil(size(inputGVcfsFile, "G")) * 120
+        Int disk = 1 + ceil(size(inputGVcfsFile, "G")*1024 * 1.1) #worst case
+    }
+    
+    #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
+    command <<<
+        ml ~{gatkModule}
+        tar -xf ~{funcotatorDataSourceTar}
+        gatk Funcotator \
+            --variant ~{inputVcf.file} \
+            --reference ~{reference.fasta} \
+            --ref-version hg38 \
+            --data-sources-path $(basename ~{funcotatorDataSource} .tar.gz) \
+            --output ~{outputVcfBasename}.vcf \
+            --output-file-format VCF
+    >>>
+    output {
+        File vcf = outputVcfBasename + vcfSuffix
+        File vcfIdx = outputVcfBasename + vcfSuffix + ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".tbi"
+        }
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+
+}
