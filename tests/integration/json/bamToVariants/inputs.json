@@ -1,9 +1,9 @@
 {
     "BamsToVariants.sampleJson": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/variantstoBam/sample.json",
-    "BamsToVariants.picardModule": "picard/2.26.10-Java-8-LTS",
-    "BamsToVariants.gatkModule": "GATK/4.2.4.1-Java-8-LTS R/4.0.3-foss-2022a-bare",
-    "BamsToVariants.samtoolsModule": "SAMtools/1.15.1-GCC-11.3.0",
-    "BamsToVariants.bcftoolsModule": "BCFtools/1.21-GCC-12.2.0",
+    "BamsToVariants.picardModule": "picard/2.26.10-Java-15",
+    "BamsToVariants.gatkModule": "GATK/4.3.0.0-GCCcore-11.3.0-Java-11 R/4.2.2-foss-2022a",
+    "BamsToVariants.samtoolsModule": "SAMtools/1.19.2-GCCcore-11.3.0",
+    "BamsToVariants.bcftoolsModule": "BCFtools/1.19-GCCcore-11.3.0",
     "BamsToVariants.reference": {
       "fasta": "data/ref/ref.fasta",
       "dict": "data/ref/ref.dict",

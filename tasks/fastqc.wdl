@@ -37,13 +37,13 @@ task FastQCSample {
         set -e -o pipefail
         module load ~{fastqcModule}
         mkfifo ~{outputPrefix}.fq
-        zcat ~{sep=" " inputFastqGzs} > ~{outputPrefix}.fq &
+        gzip -qdc ~{sep=" " inputFastqGzs} > ~{outputPrefix}.fq &
         fastqc -o ./ ~{outputPrefix}.fq
     >>>
 
     output {
         #File out_html1 = basename(inputFastq1, ".fastq.gz") + "_fastqc.html"
-        File outZip = outputPrefix + "_fastqc.zip"
+        File zip = outputPrefix + "_fastqc.zip"
     }
 
     runtime {

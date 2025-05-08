@@ -551,7 +551,7 @@ sub AnnotateSamplesheet {
 			#unreadble code.I hope it works!
 			if($file =~ m/.txt.gz/){#This is very experimental should work for single end sequencing
 				$newSample -> {'reads1FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -dc | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null| head -n 1');
 				my @fqheadsplit= split /[\/_\-: \@#]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
 				#@HWI-ST001_0001:1:1111:112345:12345#NNNNNN/1 for read end 1
@@ -566,7 +566,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads1FqGz'} = $file;
 				# $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
 				#LH12345:12:FLOWCELLID:TILENO:1000:10000:1000:GTGTC+ACAAC 2:N:0:ANAGCCATTC+AGCTGGTGAA
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -dc | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit = split /[: \@]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
 				$newSample -> {'run'} = $fqheadsplit[2];
@@ -578,7 +578,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads1FqGzMd5'}=Md5Sum($newSample -> {"reads1FqGz"});
 			}elsif($file =~ m/_R2\./){
 				$newSample -> {'reads2FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -dc | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -590,7 +590,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads3FqGz'} = $newSample -> {reads2FqGz};	
 				$newSample -> {'reads3FqGzMd5'} = $newSample -> {reads2FqGzMd5};	
 				$newSample -> {'reads2FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -dc | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -600,7 +600,7 @@ sub AnnotateSamplesheet {
 			
 			}elsif($file =~ m/_umi\./){#umi probes literal no annoying R2 as umi and R2=R3
 				$newSample -> {'reads3FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads3FqGz}.' | gzip -dc | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads3FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];
@@ -612,7 +612,7 @@ sub AnnotateSamplesheet {
 				#Future proofing
 				$newSample -> {'reads4FqGz'} = $file;
 				$newSample -> {'reads4FqGzMd5'} = Md5Sum($newSample -> {"reads4FqGz"});
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads4FqGz}.' | gzip -dc | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads4FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
 				$newSample -> {'run'} = $fqheadsplit[2];
 				$newSample -> {'flowcellId'} = $fqheadsplit[3];

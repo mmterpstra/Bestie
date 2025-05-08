@@ -6,5 +6,5 @@
         -w $PWD \
         -r $PWD/tests/runs/integration_local \
         -f $PWD/tests/data/raw/fastq/ \
-        -d /groups/umcg-pmb/tmp01//apps
+        -d /groups/umcg-pmb/tmp02//apps
 )

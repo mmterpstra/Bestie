@@ -68,12 +68,84 @@ task CollectHsMetrics {
         --TARGET_INTERVALS "~{targetIntervalList}" \
         --INPUT "~{inputBam}" \
         --OUTPUT "~{outputMetricsBasename}.hs_metrics" \
+        --COVERAGE_CAP 10000 \
         ~{if byReadGroup then "--METRIC_ACCUMULATION_LEVEL READ_GROUP " else ""} 
 
     }
     
     output {
         File hsMetrics = outputMetricsBasename + ".hs_metrics"
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+
+task CollectWgsMetrics {
+    input {
+        File inputBam
+        String outputMetricsBasename
+        Reference reference
+        String gatkModule = "GATK"
+        Int? memoryGb = "4"
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = ceil(size(inputBam, "M")*2.1)
+    }
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        ml ~{gatkModule}
+
+        gatk --java-options "-Xmx~{javaXmxMemoryMb}m -XX:ParallelGCThreads=1" CollectWgsMetrics \
+        --REFERENCE_SEQUENCE "~{reference.fasta}" \
+        --INPUT "~{inputBam}" \
+        --OUTPUT "~{outputMetricsBasename}.wgs_metrics" \
+        --COVERAGE_CAP 500 
+    }
+    
+    output {
+        File wgsMetrics = outputMetricsBasename + ".wgs_metrics"
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+task DepthOfCoverage {
+    input {
+        File inputBam
+        File targetIntervalList
+        String outputMetricsBasename
+        Array[Int] summaryCoverageThresholds = [10,20,50,100,200,500,1000,2000,5000,10000]
+        Reference reference
+        String gatkModule = "GATK"
+        Int? memoryGb = "6"
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int disk = ceil(size(inputBam, "M")*2.1)
+    }
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        ml ~{gatkModule}
+
+        gatk --java-options "-Xmx~{javaXmxMemoryMb}m -XX:ParallelGCThreads=1" \
+        DepthOfCoverage \
+        -R "~{reference.fasta}" \
+        --count-type COUNT_READS \
+        --output-format TABLE \
+        -I ~{inputBam} \
+        --output "~{outputMetricsBasename}.dcov_metrics" \
+        -L "~{targetIntervalList}" \
+        --summary-coverage-threshold ~{sep=' --summary-coverage-threshold ' summaryCoverageThresholds} 
+    }
+    
+    output {
+        File dcovMetrics = outputMetricsBasename + ".dcov_metrics"
     }
 
     runtime {
