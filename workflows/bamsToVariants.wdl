@@ -11,7 +11,8 @@ import "../tasks/alignment.wdl" as align
 import "../tasks/gatk.wdl" as gatk
 import "../tasks/gatk_mutect2.wdl" as mutect
 import "../tasks/bcftools.wdl" as bcftools
-
+import "../tasks/freebayes.wdl" as freebayes
+import "../tasks/pipeline-util.wdl" as util
 
 import "../tasks/ichorcna.wdl" as ichorcna
 import "../workflows/qc.wdl" as qc
@@ -22,6 +23,8 @@ workflow BamsToVariants {
         String gatkModule = "GATK/4.2.4.1-Java-8-LTS"
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String bcftoolsModule = "BCFtools/1.21-GCC-12.2.0"
+        String freebayesModule = "freebayes/1.3.7-gfbf-2024a-R-4.4.2"
+        String pipelineUtilModule = "pipeline-util/0.8.20-5-ga0a29bb-foss-2024a"
         Reference reference
         IndexedFile dbsnp
         #IndexedFile cosmic
@@ -84,6 +87,16 @@ workflow BamsToVariants {
                 targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx],
                 outputVcfBasename = "mutect_joint_calls_scat"+scatteredtargetsIdx
         }
+        call freebayes.FreebayesSomatic as freebayesSomatic {
+            input:
+                freebayesModule = freebayesModule,
+                reference = reference,
+                inputBams = gatherBams.link,
+                inputBamIndexes = gatherBais.link,
+                targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx],
+                outputVcfBasename = "freebayes_joint_calls_scat"+scatteredtargetsIdx
+        }
+
 
     }
     call mutect.LearnReadOrientationModel as learnReadOrientationModel {
@@ -98,19 +111,112 @@ workflow BamsToVariants {
             inputMutectStats = mutect2.stats,
             outputMergedStats = "merged.stats"
     }
-    scatter (scatteredtargetsIdx in range(length(mutect2.vcfOut))) {
-
-        call mutect.FilterMutect as FilterMutectCalls {
+    scatter (scatteredtargetsIdx in range(length(splitIntervals.paddedScatteredIntervalList))) {
+        #Mutect downstream
+        call mutect.FilterMutect as filterMutectCalls {
             input:
                 gatkModule = gatkModule,
                 reference = reference,
-
                 inputSomaticVcf = mutect2.vcfOut[scatteredtargetsIdx],
                 stats = mergeMutectStats.stats,
                 artifactPriorsTarGz=learnReadOrientationModel.artifactpriortable,
                 outputVcfBasename="mutect_filterd_scat_"+scatteredtargetsIdx,
                 targetIntervalList = splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx]
         }
+        call util.Callerise as mutectScatCallerise {
+            input:
+                pipelineUtilModule=pipelineUtilModule,
+                inputVcf = filterMutectCalls.vcf,
+                outputBase = "mutect_tagged_scat_"+scatteredtargetsIdx,
+                caller="MuTect2_"
+        }
+        call bcftools.Norm as normaliseMutect {
+            input:
+                bcftoolsModule=bcftoolsModule,
+                reference=reference,
+                inputVcf=mutectScatCallerise.vcf,
+                outputBasename ="mutect_norm_scat_"+scatteredtargetsIdx,
+        }
+        #freebayes downstream
+        call bcftools.ViewSamples as freebayesNormals {
+            input:
+                bcftoolsModule=bcftoolsModule,
+                inputVcf = freebayesSomatic.vcf[scatteredtargetsIdx],
+                outputBasename = "freebayes_normals_scat_"+scatteredtargetsIdx,
+                samples=uniqueNormals.outArray
+        }
+        call util.AdFilter as freebayesFilterGermline {
+            input:
+                inputVariantsToFilter = freebayesSomatic.vcfOut[scatteredtargetsIdx],
+                inputVcfsFiles=[freebayesNormals.vcf],
+                inputVcfs=[freebayesNormals.vcfOut],
+                outputBasename='freebayes_normals_filt_scat_'+ scatteredtargetsIdx,
+        }
+        #filterfreebayes?
+        call util.Callerise as freebayesScatCallerise {
+            input:
+                pipelineUtilModule=pipelineUtilModule,
+                inputVcf = freebayesFilterGermline.vcf,
+                outputBase = "freebayes_tagged_scat_"+scatteredtargetsIdx,
+                caller="freebayes_"
+        }
+        call bcftools.Norm as normaliseFreeBayes {
+            input:
+                bcftoolsModule=bcftoolsModule,
+                reference=reference,
+                inputVcf=freebayesScatCallerise.vcf,
+                outputBasename="freebayes_norm_scat_"+scatteredtargetsIdx,
+        }
+        #call gatk.GenomicsDBImport as importCallers {
+        #    input:
+        #        gatkModule = gatkModule,
+        #        reference = reference,
+        #        inputVcfsFiles=[normaliseFreeBayes.vcf,normaliseMutect.vcf],
+        #        inputVcfs=[normaliseFreeBayes.vcfOut,normaliseMutect.vcfOut],
+        #        outputBasename='variants_merged_scat'+ +scatteredtargetsIdx,
+        #        interval_list=splitIntervals.paddedScatteredIntervalList[scatteredtargetsIdx],
+        #}
+        #call gatk.SelectVariants as mergedVariantVcf {
+        #    input:
+        #        gatkModule = gatkModule,
+        #        reference = reference,
+        #        genomicsDbTar = importCallers.genomicsDbTar,
+        #        outputVcfBasename = 'merged_scat'+ +scatteredtargetsIdx,
+        #        
+        #
+        #}
+        call bcftools.Isec as mergeVariantLists {
+            input:
+                bcftoolsModule=bcftoolsModule,
+                inputVcfsFiles=[normaliseFreeBayes.vcf,normaliseMutect.vcf],
+                inputVcfs=[normaliseFreeBayes.vcfOut,normaliseMutect.vcfOut],
+                outputBasename='variants_merged_scat'+ scatteredtargetsIdx,
+        }
+        call freebayes.FreebayesRecall as annotateMergedLists {
+            input:
+                freebayesModule = freebayesModule,
+                reference = reference,
+                inputBams = gatherBams.link,
+                inputBamIndexes = gatherBais.link,
+                inputVariants=mergeVariantLists.vcfOut,
+                outputVcfBasename = "variants_freebayesanno_merged_scat"+scatteredtargetsIdx
+        }
+        call bcftools.Norm as normaliseMerged {
+            input:
+                bcftoolsModule=bcftoolsModule,
+                reference=reference,
+                inputVcf=annotateMergedLists.vcfOut.file,
+                outputBasename ="norm_merged_scat_"+scatteredtargetsIdx,
+        }
+        call util.ReannotateVariants as annotateCallers {
+            input:
+                pipelineUtilModule=pipelineUtilModule,
+                combinedVariants=normaliseMerged.vcfOut,
+                inputVcfsFiles=[normaliseFreeBayes.vcf,normaliseMutect.vcf],
+                inputVcfs=[normaliseFreeBayes.vcfOut,normaliseMutect.vcfOut],
+                outputBasename='annotCallers_merged_scat'+ scatteredtargetsIdx,
+        }
+
     }
     scatter (sample in sampleConfig.samples) {
         IndexedFile sampleIndexedBamHc = select_first([sample.alignedReads])
@@ -158,17 +264,25 @@ workflow BamsToVariants {
         }
         
     }
-    call picard.GatherVcfs as gatherMutect {
+    call picard.SortVcfsIndexed as gatherMutect {
         input:
             picardModule = picardModule,
-            inputVcfs=FilterMutectCalls.vcf,
+            inputVcfs=filterMutectCalls.vcf,
             outputPrefix="project_mutect2",
+            createIndex=true
     }
-    call bcftools.Index as indexMutect {
+    call picard.SortVcfsIndexed as gatherFreebayes {
         input:
-            bcftoolsModule = bcftoolsModule,
-            inputVcf = gatherMutect.outputVcf
-    } 
+            picardModule = picardModule,
+            inputVcfs=freebayesSomatic.vcf,
+            outputPrefix="project_mutect2",
+            createIndex=true
+    }
+    #call bcftools.Index as indexMutect {
+    #    input:
+    #        bcftoolsModule = bcftoolsModule,
+    #        inputVcf = gatherMutect.outputVcf
+    #} 
     #CombineGVCFs to create a single project gvcf
     call gatk.CombineGVCFs as gatherHcSamples {
         input:
@@ -192,8 +306,8 @@ workflow BamsToVariants {
         #needs to be debugged probably
         
         #fastqtobam certain output
-        Array[IndexedFile] mutect2Vars = FilterMutectCalls.vcfOut
-        IndexedFile mutect2Vcf = indexMutect.vcfOut
+        Array[IndexedFile] mutect2Vars = filterMutectCalls.vcfOut
+        #IndexedFile mutect2Vcf = indexMutect.vcfOut
         IndexedFile haplotypecallergVcf = gatherHcSamples.vcfOut
         IndexedFile haplotypecallerVcf = genotypeHcProjectGvcf.vcfOut
         

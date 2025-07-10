@@ -49,6 +49,7 @@ task FastqToUnmappedBam {
             --input ~{inputFastq1} ~{inputFastq2} ~{inputUmiFastq1} \
             --read-structures ~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi} \
             ~{true=" --extract-umis-from-read-names " false="" extractUmisFromReadNames} \
+            --read-group-id ~{readgroup}\
             --umi-tag RX \
             $UMIQUALTAG \
             --sample ~{sampleName} \

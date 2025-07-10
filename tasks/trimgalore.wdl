@@ -19,12 +19,14 @@ task TrimGalore {
         module load ${trimgaloreModule} && \
         if [ "${inputFastq2}x" == "x" ];then \
             trim_galore "${inputFastq1}" \
+                --length 0 \
                 --output_dir "$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)"
-                ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename $(basename ${inputFastq1} .fastq.gz) .fq.gz)_trimmed.fq.gz ${outputFastq1}
-                ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename ${inputFastq1} )"_trimming_report.txt" ${outputFastq1}"_trimming_report.txt"
+            ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename $(basename ${inputFastq1} .fastq.gz) .fq.gz)_trimmed.fq.gz ${outputFastq1}
+            ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename ${inputFastq1} )"_trimming_report.txt" ${outputFastq1}"_trimming_report.txt"
         else \
             trim_galore --paired "${inputFastq1}" "${inputFastq2}" \
-              --output_dir "$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)" 
+                --length 0 \
+                --output_dir "$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)" 
             ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename $(basename ${inputFastq1} .fastq.gz) .fq.gz)_val_1.fq.gz ${outputFastq1}
             ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename ${inputFastq1} )"_trimming_report.txt" ${outputFastq1}"_trimming_report.txt"
             ln -sf $PWD/$(basename $(basename ${outputFastq1} .fastq.gz) .fq.gz)/$(basename $(basename ${inputFastq2} .fastq.gz) .fq.gz)_val_2.fq.gz ${outputFastq2}

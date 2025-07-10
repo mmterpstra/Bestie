@@ -33,6 +33,7 @@ workflow FastqToVariants {
         String fgbioModule = "fgbio/1.5.1"
         String marktrimmingModule = "marktrimming/0.0.2-GCC-12.2.0"
         Boolean runCutadapt = false 
+        Boolean runDuplexConsensus = false
         String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
@@ -82,6 +83,7 @@ workflow FastqToVariants {
                 reference = reference,
                 referenceBwaIndex = referenceBwaIndex,
                 runCutadapt = runCutadapt,
+                runDuplexConsensus = runDuplexConsensus,
                 dbsnp = dbsnp,
                 knownSites = knownSites,
                 targetIntervalList = targetIntervalList,

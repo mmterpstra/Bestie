@@ -31,7 +31,7 @@ workflow FastqToBam {
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Boolean runTwistUmi = false
-        Boolean duplexConsensus = false
+        Boolean runDuplexConsensus = false
         Boolean runBaseQualityRecalibration = true
         Reference reference
         BwaIndex referenceBwaIndex
@@ -185,14 +185,14 @@ workflow FastqToBam {
             }
         }
     }
-    call fastqc.FastQCSample as fastqcSample1 {
+    call fastqc.FastQCSample as fastqcSampleR1 {
         input:
             fastqcModule = fastqcModule,
             inputFastqGzs = select_all(getfastq1.link),
             outputPrefix = sample.name + "_R1",
     }
     if (defined(getfastq2.link)) {
-        call fastqc.FastQCSample as fastqcSample2 {
+        call fastqc.FastQCSample as fastqcSampleR2 {
             input:
                 fastqcModule = fastqcModule,
                 inputFastqGzs = select_all(getfastq2.link),
@@ -223,9 +223,11 @@ workflow FastqToBam {
         }
     }
 
+    File DuplicateMarkedBam = if(runTwistUmiSample) then select_first([markDupsUmi.bam,sortBam.bam]) else sortBam.bam
+    File DuplicateMarkedBai = if(runTwistUmiSample) then select_first([markDupsUmi.bai,sortBam.bai]) else select_first([sortBam.bai])
     #runs Duplexconsensus Pipeline
 
-    if(runTwistUmiSample && duplexConsensus){
+    if(runTwistUmiSample && runDuplexConsensus){
         call picard.MergeSamFiles as mergeBySample{
             input:
                 picardModule = picardModule,
@@ -329,8 +331,9 @@ workflow FastqToBam {
     
     #optional basequality score recalibration
 
-    File prebqsrBam = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bam,sortBam.bam]) else sortBam.bam
-    File prebqsrBai = if(runTwistUmiSample) then select_first([bwaDuplexConsensusAlignment.bai,sortBam.bai]) else select_first([sortBam.bai])
+    File prebqsrBam = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bam,DuplicateMarkedBam]) else DuplicateMarkedBam
+    File prebqsrBai = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bai,DuplicateMarkedBai]) else DuplicateMarkedBai
+
     if(runBaseQualityRecalibration){
         call gatk.BaseQualityScoreRecalibration as bqsr {
             input:

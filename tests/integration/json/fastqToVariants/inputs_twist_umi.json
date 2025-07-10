@@ -13,6 +13,7 @@
   "FastqToVariants.cutadaptModule": "cutadapt/4.2-GCCcore-11.3.0",
   "FastqToVariants.runCutadapt": true,
   "FastqToVariants.runTwistUmi": true,
+  "FastqToVariants.runDuplexConsensus": true,
   "FastqToVariants.read1Adapters": ["AGATCGGAAGAGC"],
   "FastqToVariants.read2Adapters": ["AGATCGGAAGAGC"],
   "FastqToVariants.referenceBwaIndex": {

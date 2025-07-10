@@ -1,0 +1,121 @@
+version 1.0
+import "../structs.wdl" as structs
+
+
+task Callerise {
+    input {
+        #query sorted unaligned bam
+        File inputVcf
+        String outputBase
+        String caller
+        Int memoryGb = "1"
+        #Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
+        String pipelineUtilModule = "pipeline-util"
+        Int timeMinutes = 5 + ceil(size(select_all([inputVcf]), "G")) * 50
+    }
+    command {
+        #also note the optional "-p" to only retain the tag prefixed data 
+        
+        module load ~{pipelineUtilModule} && \
+        CalleriseVcf.pl -c ~{caller} -i ~{inputVcf} -o /dev/stdout | bgzip -c > "~{outputBase}.vcf.gz"
+        tabix -p vcf "~{outputBase}.vcf.gz"
+        
+    }
+
+    output {
+        File vcf = outputBase+".vcf.gz"
+        File vcfIdx = outputBase+".vcf.gz.tbi"
+        
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,1024])
+        timeMinutes: timeMinutes
+    }
+}
+task ReannotateVariants {
+    input{
+        IndexedFile combinedVariants
+        Array [File] inputVcfsFiles
+        Array [IndexedFile] inputVcfs
+        String outputBasename
+        Int memoryGb = "1"
+        String pipelineUtilModule = "pipeline-util"
+        String vcfSuffix = ".vcf.gz"
+        Int timeMinutes = 1 + ceil(size(inputVcfsFiles, "G")) * 40
+        #Possible values: {unsorted, queryname, coordinate, duplicate, unknown} #
+        Int disk = 1 + ceil(size(inputVcfsFiles, "G")) * 1024
+        
+    }
+    command <<<
+        set -eo pipefail
+        ml ~{pipelineUtilModule}
+        perl $EBROOTPIPELINEMINUTIL/bin/RecoverSampleAnnotationsAfterCombineVariantsByPosWalk.pl \
+            ~{outputBasename}.complex.vcf \
+            ~{combinedVariants.file} \
+            ~{sep=' ' inputVcfsFiles} \
+            |bgzip -c >  ~{outputBasename}~{vcfSuffix}
+        
+        tabix -p vcf ~{outputBasename}~{vcfSuffix}
+
+    >>>
+    output {
+        File vcf = outputBasename + vcfSuffix
+        File vcfIdx = vcf + ".tbi"
+        IndexedFile vcfOut = { 
+          "file" : vcf,
+          "index" : vcfIdx
+        }
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+task AdFilter {
+    input{
+        IndexedFile inputVariantsToFilter
+        Array [File] inputVcfsFiles
+        Array [IndexedFile] inputVcfs
+        String outputBasename
+        Int memoryGb = "1"
+        String pipelineUtilModule = "pipeline-util"
+        String vcfSuffix = ".vcf.gz"
+        Int timeMinutes = 1 + ceil(size(inputVcfsFiles, "G")) * 40
+        Int disk = 1 + ceil(size(inputVcfsFiles, "G")) * 1024
+        
+    }
+    #this filters for allele depth control(s) + 4 and/or frequency control(s) + 0.05. 
+    #Maybe also omit entirely when seen in controls above a certain freq like 0.10 pct.
+    command <<<
+        set -eo pipefail
+        ml ~{pipelineUtilModule}
+        
+        perl $EBROOTPIPELINEMINUTIL/bin/AdFilter.pl \
+            -f 0.005 -c 4 \
+            "~{inputVariantsToFilter.file}" \
+            "~{sep='" "' inputVcfsFiles}" | \
+        perl -wne 'print if(m/^#|\tPASS\t/);' | \
+        bgzip -c >  "~{outputBasename}~{vcfSuffix}"
+        
+        
+        tabix -p vcf "~{outputBasename}~{vcfSuffix}"
+
+    >>>
+    output {
+        File vcf = outputBasename + vcfSuffix
+        File vcfIdx = vcf + ".tbi"
+        IndexedFile vcfOut = { 
+          "file" : vcf,
+          "index" : vcfIdx
+        }
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}

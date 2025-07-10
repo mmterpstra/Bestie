@@ -305,7 +305,7 @@ END
 		push(@$mergedSamplesheet,@$samplesheet);
 	}
 	
-	#subroutines
+
 	my @fields;
 	my $fields;%{$fields} =();
 
@@ -320,6 +320,7 @@ END
 		@fields = split(',',$opts -> {'f'});
 		for my $sample (@$mergedSamplesheet){
 			my $ref = $h;
+			#this creates $h{$field1}{$field2}...{$fieldn}[$sample1,$sample2,$samplen]
 			for my $field (@fields){
 				my $val = $sample -> {$field};
 				if(not(defined($ref -> {$val}))){
@@ -361,7 +362,7 @@ END
 }
 
 ##########################################################################
-
+#subroutines
 sub ValidateSamplesheet {
 	my $tool = shift @_;
 	my $opts;%{$opts}=();
@@ -423,10 +424,12 @@ sub BatchSamplesheet {
 	getopts('p:b:c:m:', $opts);
 	my $samplesheetfile = shift @ARGV;
 	my $use .=<<"END";
-WIP use: perl $0 $tool -p PROJECTBASE -b INT -c CONTROLSAMPLENAME -m MOARCONTROLS samplesheet.csv
-Batches projectnames based on PROJECTBASE and about INT samples in batches also adds a CONTROLSAMPLE in here. When MOARCONTROLS is a comma separated list of samplenames these get added as additional controlsamples.
+use (WIP): perl $0 $tool -p PROJECTBASE -b INT -c CONTROLSAMPLENAME -m MOARCONTROLS samplesheet.csv
+ Batches projectnames based on PROJECTBASE and about INT samples in batches also adds a CONTROLSAMPLE in here. When MOARCONTROLS is a
+ comma separated list of samplenames these get added as additional controlsamples.
+ note: wip feature takes '-c none' as input to skip generating with controls.
 END
-	die "ERROR: At least one of these missing -p PROJECTBASE -b INT -c CONTROLSAMPLENAME -m MOARCONTROLS. $use." if(not( $opts -> {'p'} && $opts -> {'b'} && $opts -> {'c'}&& $opts -> {'m'} ));	
+	die "ERROR: At least one of these missing -p PROJECTBASE -b INT -c CONTROLSAMPLENAME -m MOARCONTROLS.\n$use " if(not( $opts -> {'p'} && $opts -> {'b'} && $opts -> {'c'}&& $opts -> {'m'} ));	
 	
 	my $samplesheet = ReadSamplesheet($samplesheetfile);
 	my $batchedss = Batcher($samplesheet,$opts -> {'p'},$opts -> {'b'},$opts -> {'c'},$opts -> {'m'});
@@ -562,7 +565,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'lane'} = $fqheadsplit[4];#this should create an uniq list of lanes
 				$newSample -> {'barcode'}=$fqheadsplit[-2] if($fqheadsplit[-2] =~ m/[ATCGN\+]{6,}/);
 				$newSample -> {'reads1FqGzMd5'}=Md5Sum($newSample -> {"reads1FqGz"});
-			}if($file =~ m/_R1\./){
+			}if($file =~ m/_R1(\.f|_\d+\.f)/){
 				$newSample -> {'reads1FqGz'} = $file;
 				# $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
 				#LH12345:12:FLOWCELLID:TILENO:1000:10000:1000:GTGTC+ACAAC 2:N:0:ANAGCCATTC+AGCTGGTGAA
@@ -576,7 +579,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'lane'} = $fqheadsplit[4];#this should create an uniq list of lanes
 				$newSample -> {'barcode'}=$fqheadsplit[-1] if($fqheadsplit[-1] =~ m/[ATCGN\+]{6,}/);
 				$newSample -> {'reads1FqGzMd5'}=Md5Sum($newSample -> {"reads1FqGz"});
-			}elsif($file =~ m/_R2\./){
+			}elsif($file =~ m/_R2(\.f|_\d+\.f)/){
 				$newSample -> {'reads2FqGz'} = $file;
 				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads2FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
@@ -586,7 +589,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'lane'} = $fqheadsplit[4];
                                 $newSample -> {'reads2FqGzMd5'}=Md5Sum($newSample -> {"reads2FqGz"});
 
-			}elsif($file =~ m/_R3\./){#nugene/umi probs
+			}elsif($file =~ m/_R3(\.f|_\d+\.f)/){#nugene/umi probs
 				$newSample -> {'reads3FqGz'} = $newSample -> {reads2FqGz};	
 				$newSample -> {'reads3FqGzMd5'} = $newSample -> {reads2FqGzMd5};	
 				$newSample -> {'reads2FqGz'} = $file;
@@ -598,7 +601,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'lane'} = $fqheadsplit[4];#this should create an uniq list of lanes
                                 $newSample -> {'reads2FqGzMd5'}=Md5Sum($newSample -> {"reads2FqGz"});
 			
-			}elsif($file =~ m/_umi\./){#umi probes literal no annoying R2 as umi and R2=R3
+			}elsif($file =~ m/_umi(\.f|_\d+\.f)/){#umi probes literal no annoying R2 as umi and R2=R3
 				$newSample -> {'reads3FqGz'} = $file;
 				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads3FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit= split /[: \@]/,($fqhead -> [0]);
@@ -608,7 +611,7 @@ sub AnnotateSamplesheet {
 				$newSample -> {'lane'} = $fqheadsplit[4];#this should create an uniq list of lanes
                                 $newSample -> {'reads3FqGzMd5'}=Md5Sum($newSample -> {"reads3FqGz"});
 			
-			}elsif($file =~ m/_R4\./){
+			}elsif($file =~ m/_R4(\.f|_\d+\.f)/){
 				#Future proofing
 				$newSample -> {'reads4FqGz'} = $file;
 				$newSample -> {'reads4FqGzMd5'} = Md5Sum($newSample -> {"reads4FqGz"});
@@ -1483,16 +1486,31 @@ sub CollectBestSamples {
 sub Batcher{
 	#could oalso be named botcher cause this can botch up yer samplesheet
 	my ($samplesheet, $projectbase, $maxbatchsize, $controlSampleName, $moreControls) = @_;
-	warn "Batcher".Dumper(@_). ' ';
-	my $controlsample = GetControl($samplesheet, $controlSampleName);
-	warn "##### $moreControls";
-	my @moreControls = split(',',$moreControls);
-	my $batchindex = 0;
-	warn "here : ".Dumper($controlsample)."\n";
-	my $cs;push(@{$cs},$controlsample);
 	
 	my $batchedSamplesheet;
+	warn "Batcher".Dumper(@_). ' ';
 	my @batchedProjectNames;
+	my $batchindex = 0;
+	my $controlsample;
+	my @moreControls;
+	if($controlSampleName ne 'none' ){
+		$controlsample = GetControl($samplesheet, $controlSampleName);
+		warn "##### $moreControls";
+		warn "here : ".Dumper($controlsample)."\n";
+		$batchindex++;
+		push(@{$batchedSamplesheet},$controlsample);
+
+		@moreControls = split(',',$moreControls);
+		for my $additionalcontrol ( @moreControls ){
+			my $additionalcontrolsample = GetControl($samplesheet, $additionalcontrol);
+			$batchindex++;
+			push(@{$batchedSamplesheet},$additionalcontrolsample);
+		}
+	}else{
+		$controlsample -> {'sampleName'} = 'none'
+	}
+	
+	
 	my %sampleNameToBatch; #for checkin if samplename is already seen and adding samplename to the correct batch
 	for my $sample (@{$samplesheet}){
 		if(defined($sampleNameToBatch{$sample -> {'sampleName'}})){
@@ -1508,10 +1526,12 @@ sub Batcher{
 			if((floor($batchindex / $maxbatchsize) == $batchindex / $maxbatchsize)){
 				push(@batchedProjectNames,$batchProjectName);
 				warn "INFO: Adding new project $batchProjectName\n";
-				my $newControl; %{$newControl} =  %{$controlsample};			
-				$newControl -> {'project'} = $batchProjectName;
-				$newControl -> {'controlSampleName'} = $newControl -> {'sampleName'};
-				push(@{$batchedSamplesheet}, $newControl);
+				if($controlSampleName ne 'none' ){
+					my $newControl; %{$newControl} =  %{$controlsample};			
+					$newControl -> {'project'} = $batchProjectName;
+					$newControl -> {'controlSampleName'} = $newControl -> {'sampleName'};
+					push(@{$batchedSamplesheet}, $newControl);
+				}
 			}
 			$sample -> {'project'} = $batchProjectName;
 			$sample -> {'controlSampleName'} = $controlsample -> {'sampleName'};

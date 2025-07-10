@@ -57,6 +57,7 @@ task FastqToUnmappedBamPicardSorted {
             ~{true=" --extract-umis-from-read-names " false="" extractUmisFromReadNames} \
             --umi-tag RX \
             $UMIQUALTAG \
+            --read-group-id ~{readgroup} \
             --sample ~{sampleName} \
             --library ~{library} \
             --platform ~{platform} \
@@ -149,6 +150,7 @@ task FastqToFgUnmappedBamPicardSortedScattered {
             ~{true=" --extract-umis-from-read-names " false="" extractUmisFromReadNames} \
             --umi-tag RX \
             $UMIQUALTAG \
+            --read-group-id ~{readgroup} \
             --sample ~{sampleName} \
             --library ~{library} \
             --platform ~{platform} \

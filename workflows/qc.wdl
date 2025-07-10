@@ -25,6 +25,13 @@ workflow bamQualityControl {
             outputMetricsBasename = outputPrefix + "_multiplemetrics",
             byReadGroup = byReadGroup
     }
+    call gatk.CollectWgsMetrics as wgsMetrics {
+        input:
+            gatkModule = gatkModule,
+            reference = reference,
+            inputBam = inputBam,
+            outputMetricsBasename = outputPrefix,
+    }
     if(defined(targetIntervalList)) {
         call gatk.CollectHsMetrics as collectHsMetrics {
             input:
@@ -43,14 +50,7 @@ workflow bamQualityControl {
                 targetIntervalList = select_first([targetIntervalList]),
                 inputBam = inputBam,
                 outputMetricsBasename = outputPrefix,
-        }
-        call gatk.CollectWgsMetrics as wgsMetrics {
-            input:
-                gatkModule = gatkModule,
-                reference = reference,
-                inputBam = inputBam,
-                outputMetricsBasename = outputPrefix,
-        }
+        }        
     }
     call common.ZipFiles as CreateQcZip {
         input:
@@ -64,9 +64,12 @@ workflow bamQualityControl {
                     collectMultipleMetrics.qualityByCyclePdf,
                     collectMultipleMetrics.qualityDistributionMetrics,
                     collectMultipleMetrics.readLengthPdf,
-                    wgsMetrics.WgsMetrics
+                    wgsMetrics.wgsMetrics
                 ],
-            optionalFileList = [select_first([CollectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"]),select_first([DepthOfCoverage.dcovMetrics,outputPrefix + ".dcov_metrics_skipped"])],
+            optionalFileList = [
+                    select_first([collectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"]),
+                    select_first([depthOfCoverage.dcovMetrics,outputPrefix + ".dcov_metrics_skipped"])
+                ],
             outputPrefix = outputPrefix,
             flattenArchive = flattenArchive
     }
