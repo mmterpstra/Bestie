@@ -50,8 +50,7 @@ workflow bamQualityControl {
                 targetIntervalList = select_first([targetIntervalList]),
                 inputBam = inputBam,
                 outputMetricsBasename = outputPrefix,
-        }
-        
+        }        
     }
     call common.ZipFiles as CreateQcZip {
         input:
