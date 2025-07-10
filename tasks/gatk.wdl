@@ -385,4 +385,84 @@ task GenotypeGVCFs {
 
 }
 
+task GenomicsDBImport {
+    input{
+        Array[IndexedFile] inputVcfs
+        Array[File] inputVcfsFiles
+        String outputBasename
+        File interval_list
+        Reference reference
+        String gatkModule = "GATK"
+        Int threads = 6
+        Int memoryGb = "12"
+        Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
+        Int timeMinutes = 1 + ceil(size(inputVcfsFiles, "G")) * 120
+        Int disk = 1 + ceil(size(inputVcfsFiles, "G") * 2.1) #worst case
+      }
+    #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
+    command <<<
+        set -euo pipefail
+        ml ~{gatkModule}
+        gatk --java-options "-Xmx4g -Xms4g" GenomicsDBImport \
+            --reference ~{reference.fasta} \
+            --variant ~{sep=' --variant ' inputVcfsFiles} \
+            --genomicsdb-workspace-path ~{outputBasename}.genomicsdb \
+            --tmp-dir=$TMPDIR \
+            --genomicsdb-shared-posixfs-optimizations true \
+            --batch-size 50 \
+            --reader-threads ~{threads - 1} \
+            --merge-contigs-into-num-partitions 25 \
+            --merge-input-intervals \
+            --intervals ~{interval_list}
+        
+        tar -cf ~{outputBasename}.genomicsdb.tar ~{outputBasename}.genomicsdb
+    >>>
+    output {
+        File genomicsDbTar = outputBasename + ".genomicsdb.tar" 
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
 
+}
+
+task SelectVariants {
+    input{
+        File genomicsDbTar
+        String outputVcfBasename
+        String vcfSuffix = ".vcf.gz"
+        Reference reference
+        String gatkModule = "GATK"
+        Int memoryGb = "12"
+        Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
+        Int timeMinutes = 1 + ceil(size(genomicsDbTar, "G")) * 120
+        Int disk = 1 + ceil(size(genomicsDbTar, "G") * 2.1) #worst case
+    }
+    #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
+    command <<<
+        set -euo pipefail
+        ml ~{gatkModule}
+        tar -xf ~{genomicsDbTar}
+
+        gatk --java-options "-Xmx4g -Xms4g" SelectVariants \
+            --reference ~{reference.fasta} \
+            --variant gendb://"$(basename ~{genomicsDbTar} .tar)" \
+            --genomicsdb-workspace-path \
+            --tmp-dir=$TMPDIR \
+            --output ~{outputVcfBasename}.vcf.gz
+    >>>
+    output {
+        File vcf = outputVcfBasename + ".vcf.gz" 
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+
+}
+
+#
+  

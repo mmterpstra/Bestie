@@ -328,6 +328,7 @@ task SplitAndPadIntervals {
 task GatherVcfs {
     input {
         Array[File] inputVcfs
+        Boolean createIndex = true
         String outputPrefix
         String vcfSuffix = ".vcf.gz"
         String picardModule = "picard"
@@ -339,6 +340,7 @@ task GatherVcfs {
         module load ~{picardModule}
         java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
         GatherVcfs \
+        ~{true="CREATE_INDEX=true " false="" createIndex} \
         INPUT=~{sep=' INPUT=' inputVcfs} \
         OUTPUT=~{outputPrefix}~{vcfSuffix} \
     }
@@ -355,6 +357,80 @@ task GatherVcfs {
         timeMinutes: timeMinutes
     }
 }
+
+task GatherVcfsIndexed {
+    input {
+        Array[File] inputVcfs
+        Boolean createIndex = true
+        String outputPrefix
+        String vcfSuffix = ".vcf.gz"
+        String picardModule = "picard"
+        Int memoryGb = "5"
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
+        Int timeMinutes = 1 + ceil(size(inputVcfs, "G")) * 60
+    }
+    command {
+        set -o pipefail
+        module load ~{picardModule}
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
+        GatherVcfs \
+        INPUT=$(realpath ~{sep=') INPUT=$(realpath ' inputVcfs}) \
+        OUTPUT=/dev/stdout | \
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
+        SortVcf \
+        INPUT=/dev/stdin \
+        ~{true="CREATE_INDEX=true " false="" createIndex} \
+        OUTPUT=~{outputPrefix}~{vcfSuffix}
+
+    }
+    output {
+        File outputVcf = outputPrefix + vcfSuffix
+        File outputVcfIdx = outputPrefix + vcfSuffix+ ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputPrefix + vcfSuffix,
+          "index" : outputPrefix + vcfSuffix + ".tbi"
+        }
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+    }
+}
+task SortVcfsIndexed {
+    input {
+        Array[File] inputVcfs
+        Boolean createIndex = true
+        String outputPrefix
+        String vcfSuffix = ".vcf.gz"
+        String picardModule = "picard"
+        Int memoryGb = "5"
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
+        Int timeMinutes = 1 + ceil(size(inputVcfs, "G")) * 60
+    }
+    command {
+        set -o pipefail
+        module load ~{picardModule}
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
+        SortVcf \
+        INPUT= ~{sep=' INPUT= ' inputVcfs} \
+        ~{true="CREATE_INDEX=true " false="" createIndex} \
+        OUTPUT=~{outputPrefix}~{vcfSuffix}
+
+    }
+    output {
+        File outputVcf = outputPrefix + vcfSuffix
+        File outputVcfIdx = outputPrefix + vcfSuffix+ ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputPrefix + vcfSuffix,
+          "index" : outputPrefix + vcfSuffix + ".tbi"
+        }
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+    }
+}
+
 
 task SplitSamByNumberOfReads {
     input {
