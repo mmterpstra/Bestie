@@ -9,11 +9,11 @@ task FastqToUnmappedBamPicardSorted {
         File? inputUmiFastq1
         Int memoryGb = "4"
         Int javaPicardXmxMemoryMb = floor(2*0.95*1024)
-        Int javaFgbioXmxMemoryMb = floor(2*0.95*1024)
+        Int javaFgbioXmxMemoryMb = floor(1*0.95*1024)
         #needs fgbio2
         String fgbioModule = "fgbio/2.2.1-Java-8-LTS"
         #picard2
-        String fgbioModule = "picard"
+        String picardModule = "picard"
         String sampleName = "test"
         String readgroup = "A"
         String library = "sample_barcode1+barcode2"
@@ -33,7 +33,7 @@ task FastqToUnmappedBamPicardSorted {
         Boolean? sort = false    
     }
     command {
-        set -e
+        set -e -o pipefail
         
         
         READSTRUCTURES="~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi}"
@@ -83,7 +83,7 @@ task FastqToUnmappedBamPicardSorted {
     }
 }
 
-task FastqToUnmappedBamPicardSortedScattered {
+task FastqToFgUnmappedBamPicardSortedScattered {
     input {
         File inputFastq1
         File? inputFastq2
@@ -95,7 +95,7 @@ task FastqToUnmappedBamPicardSortedScattered {
         #needs fgbio2
         String fgbioModule = "fgbio/2.2.1-Java-8-LTS"
         #picard2
-        String fgbioModule = "picard"
+        String picardModule = "picard"
         String sampleName = "test"
         String readgroup = "A"
         String library = "sample_barcode1+barcode2"
@@ -103,7 +103,7 @@ task FastqToUnmappedBamPicardSortedScattered {
         String platformUnit = "run_barcode.lane"
         String readGroupName = "flowcell_run_barcode.lane"
         #String? platformModel = "NextSeq?"    
-        String outputUnalignedBam = "unaligned_test.sam"
+        #String outputUnalignedBam = "unaligned_test.sam"
         Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 120
         #default +T or "5M2S+T" for twist datasets
         String? readStructureFastq1 = "+T"
@@ -116,11 +116,16 @@ task FastqToUnmappedBamPicardSortedScattered {
         String outputBamBaseDir
     }
     command {
-        set -e
-        
-        TOTALREADS=$(gzip -qdc ~{inputFastq1} | \
+        set -e -o pipefail
+
+        TOTALREADS=$(gzip -qdc ~{inputFastq1} ~{inputFastq2} | \
             wc -l | \
             python3 -c 'import sys; print("\n".join(str(int(x)//4) for x in sys.stdin))' )
+        SPLIT_TO_N_READS=~{numberOfReads}
+        if [ "~{numberOfReads}" -gt "$TOTALREADS" ]; then
+
+            SPLIT_TO_N_READS=$TOTALREADS
+        fi
 
         READSTRUCTURES="~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi}"
         UMIQUALTAG=""
@@ -132,12 +137,13 @@ task FastqToUnmappedBamPicardSortedScattered {
             1>&2 echo  "The readstructures contain one or more 'M'. tags. Setting umi qual tag."
             UMIQUALTAG="--umi-qual-tag RQ "
         fi
-        
+        mkdir -p "~{outputBamBaseDir}"
 
         (
             module load ~{fgbioModule} && java -Xmx~{javaFgbioXmxMemoryMb}m \
+            -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
             --compression 0 \
-            -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar FastqToBam \
+            FastqToBam \
             --input ~{inputFastq1} ~{inputFastq2} ~{inputUmiFastq1} \
             --read-structures ~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi} \
             ~{true=" --extract-umis-from-read-names " false="" extractUmisFromReadNames} \
@@ -162,14 +168,14 @@ task FastqToUnmappedBamPicardSortedScattered {
             java -Xmx~{javaPicardSplitXmxMemoryMb}m \
                 -jar $EBROOTPICARD/picard.jar SplitSamByNumberOfReads \
                 INPUT=/dev/stdin \
-                OUTPUT=~{outputBamBaseDir} \
-                SPLIT_TO_N_READS=~{numberOfReads} \
+                OUTPUT="~{outputBamBaseDir}" \
+                SPLIT_TO_N_READS=$SPLIT_TO_N_READS \
                 TOTAL_READS_IN_INPUT=$TOTALREADS
         )
     }
 
     output {
-        File ubam = outputUnalignedBam
+        Array[File] ubams = glob(outputBamBaseDir+"/*.bam")
     }
 
     runtime {

@@ -28,8 +28,8 @@
     "FastqToVariants.targetScatter": 3,
     "FastqToVariants.runCutadapt": true,
     "FastqToVariants.runTwistUmi": true,
-    "FastqToVariants.read1Adapters": ["AGATCGGAAGAGC"],
-    "FastqToVariants.read2Adapters": ["AGATCGGAAGAGC"],
+    "FastqToVariants.read1Adapters": ["NNNNNNNAGATCGGAAGAGC"],
+    "FastqToVariants.read2Adapters": ["NNNNNNNAGATCGGAAGAGC"],
     "FastqToVariants.dbsnp": {
       "file" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
       "index" : "./data/gcp-public-data--broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.gz.tbi" 

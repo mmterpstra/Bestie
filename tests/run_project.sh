@@ -6,7 +6,7 @@
 #smart defaults
 PIPELINE="Bestie.wdl"
 WORKFLOWROOT="$PWD"
-CONFIG=$(ls $WORKFLOWROOT/site/*/cromwell.conf) 
+CONFIG=$(ls $WORKFLOWROOT/site/*/cromwell.conf | head -n 1) 
 
 while getopts i:s:w:r:f:d:p:c: flag
 do

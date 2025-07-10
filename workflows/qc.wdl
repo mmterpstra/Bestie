@@ -17,7 +17,7 @@ workflow bamQualityControl {
         Boolean byReadGroup = false
         Boolean flattenArchive = true
     }
-    call gatk.CollectMultipleMetrics as CollectMultipleMetrics {
+    call gatk.CollectMultipleMetrics as collectMultipleMetrics {
         input:
             gatkModule = gatkModule,
             reference = reference,
@@ -26,7 +26,7 @@ workflow bamQualityControl {
             byReadGroup = byReadGroup
     }
     if(defined(targetIntervalList)) {
-        call gatk.CollectHsMetrics as CollectHsMetrics {
+        call gatk.CollectHsMetrics as collectHsMetrics {
             input:
                 gatkModule = gatkModule,
                 reference = reference,
@@ -36,21 +36,37 @@ workflow bamQualityControl {
                 byReadGroup = byReadGroup
 
         }
+        call gatk.DepthOfCoverage as depthOfCoverage {
+            input:
+                gatkModule = gatkModule,
+                reference = reference,
+                targetIntervalList = select_first([targetIntervalList]),
+                inputBam = inputBam,
+                outputMetricsBasename = outputPrefix,
+        }
+        call gatk.CollectWgsMetrics as wgsMetrics {
+            input:
+                gatkModule = gatkModule,
+                reference = reference,
+                inputBam = inputBam,
+                outputMetricsBasename = outputPrefix,
+        }
     }
     call common.ZipFiles as CreateQcZip {
         input:
             fileList = 
-                [   CollectMultipleMetrics.alignmentMetrics, 
-                    CollectMultipleMetrics.baseDistributionMetrics,
-                    CollectMultipleMetrics.baseDistributionPdf,
-                    CollectMultipleMetrics.insertSizeMetrics,
-                    CollectMultipleMetrics.insertSizePdf,
-                    CollectMultipleMetrics.qualityByCycleMetrics,
-                    CollectMultipleMetrics.qualityByCyclePdf,
-                    CollectMultipleMetrics.qualityDistributionMetrics,
-                    CollectMultipleMetrics.readLengthPdf
+                [   collectMultipleMetrics.alignmentMetrics, 
+                    collectMultipleMetrics.baseDistributionMetrics,
+                    collectMultipleMetrics.baseDistributionPdf,
+                    collectMultipleMetrics.insertSizeMetrics,
+                    collectMultipleMetrics.insertSizePdf,
+                    collectMultipleMetrics.qualityByCycleMetrics,
+                    collectMultipleMetrics.qualityByCyclePdf,
+                    collectMultipleMetrics.qualityDistributionMetrics,
+                    collectMultipleMetrics.readLengthPdf,
+                    wgsMetrics.WgsMetrics
                 ],
-            optionalFileList = [select_first([CollectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"])],
+            optionalFileList = [select_first([CollectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"]),select_first([DepthOfCoverage.dcovMetrics,outputPrefix + ".dcov_metrics_skipped"])],
             outputPrefix = outputPrefix,
             flattenArchive = flattenArchive
     }

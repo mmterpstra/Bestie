@@ -16,7 +16,7 @@ task FastqToUnmappedBam {
         String readGroupName = "flowcell_run_barcode.lane"
         #String? platformModel = "NextSeq?"    
         String outputUnalignedBam = "unaligned_test.sam"
-        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 120
+        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 20
         #default +T or "5M2S+T" for twist datasets
         String? readStructureFastq1 = "+T"
         #default +T or "5M2S+T" for twist datasets
@@ -42,8 +42,10 @@ task FastqToUnmappedBam {
         fi
         
 
-        java -Xmx~{javaXmxMemoryMb}m \
-            -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar FastqToBam \
+        java -Xmx~{javaXmxMemoryMb}m  \
+            -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --compression 1 --async-io \
+            FastqToBam \
             --input ~{inputFastq1} ~{inputFastq2} ~{inputUmiFastq1} \
             --read-structures ~{readStructureFastq1} ~{readStructureFastq2} ~{readStructureFastqUmi} \
             ~{true=" --extract-umis-from-read-names " false="" extractUmisFromReadNames} \
@@ -76,7 +78,7 @@ task ExtractUmisFromBam {
         String fgbioModule = "fgbio"
         Int memoryGb = "4"
         Int javaMemoryMb = ceil(memoryGb * 1024 * 0.85)
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 20
         Int disk = ceil(size(inputBam, "M")*2.1)
     }
     #a twist special
@@ -86,6 +88,7 @@ task ExtractUmisFromBam {
         module load ~{fgbioModule} && \
         java -Xmx~{javaMemoryMb}m \
             -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --compression 1 --async-io \
             ExtractUmisFromBam \
             --input=~{inputBam} \
             --output=~{outputBamBasename}.bam \
@@ -114,13 +117,15 @@ task GroupReadsByUmi {
         String groupUmiReadsStrategy = "paired" #can also be identity, edit or adjacency. See https://fulcrumgenomics.github.io/fgbio/tools/latest/GroupReadsByUmi.html
         Int memoryGb = "4"
         Int javaMemoryMb = ceil(memoryGb * 1024 * 0.85)
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
         Int disk = ceil(size(inputBam, "M")*2.1)
     }
     command {
         set -e
         module load ~{fgbioModule} && \
-        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar GroupReadsByUmi \
+        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --compression 1 --async-io \
+            GroupReadsByUmi \
             --strategy=~{groupUmiReadsStrategy} \
             --input=~{inputBam} \
             --output=~{outputBamBasename}".bam" \
@@ -149,13 +154,15 @@ task CallDuplexConsensusReads {
         String fgbioModule = "fgbio"
         Int memoryGb = "5"
         Int javaMemoryMb = ceil(memoryGb * 1024 * 0.85)
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
         Int disk = ceil(size(inputBam, "M")*2.1)
     }
     command {
         set -e
         module load ~{fgbioModule} && \
-        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar CallDuplexConsensusReads \
+        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --compression 1 --async-io \
+            CallDuplexConsensusReads \
             --input=~{inputBam} \
             --output="~{outputBamBasename}.bam" \
             --error-rate-pre-umi=45 \
@@ -182,13 +189,15 @@ task FilterDuplexConsensusReads {
         String fgbioModule = "fgbio"
         Int memoryGb = "5"
         Int javaMemoryMb = ceil(memoryGb * 1024 * 0.85)
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
         Int disk = ceil(size(inputBam, "M")*2.1)
     }
     command {
         set -e
         module load ~{fgbioModule} && \
-        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar FilterDuplexConsensusReads \
+        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --compression 1 --async-io \
+            FilterDuplexConsensusReads \
             --input=~{inputBam} \
             --output="~{outputBamBasename}.bam" 
             #\
