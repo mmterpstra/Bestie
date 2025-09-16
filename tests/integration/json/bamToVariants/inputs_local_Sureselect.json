@@ -4,7 +4,7 @@
     "BamsToVariants.gatkModule": "GATK/4.6.0.0-GCCcore-13.3.0-Java-21 R/4.4.2-gfbf-2024a",
     "BamsToVariants.samtoolsModule": "SAMtools/1.21-GCC-13.3.0",
     "BamsToVariants.bcftoolsModule": "BCFtools/1.21-GCC-13.3.0",
-    "BamsToVariants.freebayesModule": "freebayes/1.3.7-gfbf-2024a-R-4.4.2",
+    "BamsToVariants.freebayesModule": "freebayes/1.3.10-gfbf-2024a-R-4.4.2-static R/4.4.2-gfbf-2024a",
     "BamsToVariants.pipelineUtilModule": "pipeline-util/0.8.21-foss-2024a",
     "BamsToVariants.lofreqModule": "LoFreq/2.1.5-foss-2024a",
     "BamsToVariants.reference": {
@@ -36,6 +36,6 @@
           "index": "data/gcp-public-data--broad-references/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.gz.tbi"
         }
       ],
-    "BamsToVariants.targetIntervalList": "data/interval_lists/hg38/test/targets_local.interval_list",
-    "BamsToVariants.targetScatter": 3
+    "BamsToVariants.targetIntervalList": "data/interval_lists/hg38/S31285117_SureSelectV7_Regions_hg38.interval_list",
+    "BamsToVariants.targetScatter": 20
 }

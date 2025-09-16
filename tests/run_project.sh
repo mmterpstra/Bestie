@@ -7,8 +7,26 @@
 PIPELINE="Bestie.wdl"
 WORKFLOWROOT="$PWD"
 CONFIG=$(ls $WORKFLOWROOT/site/*/cromwell.conf | head -n 1) 
+TARGETINTERVALS="undef"
+HELP=$(cat << 'EOF'
+$0 usage
 
-while getopts i:s:w:r:f:d:p:c: flag
+Helper to localise the data for starting an analysis and setting the correct cromwell command
+
+-i INPUTJSON Input json from commandline containing the wdl settings needed for running the pipeline
+-s SAMPLEJSON Optional samplejson or else you need to put the sampleconfig in the inputjson
+-w WORKFLOWROOT This is the directory with the Bestie.wdl script in it 
+-r RUNROOT This is the dir where all the rundata gets stored
+    $RUNROOT/cromwell-executions/*/workflowName will store most of the data.
+-f FASTQRAWDIR[,FASTQRAWDIR] One or more directories with fastq analysis data in it
+-d DATADIR the dir that contains the 'data' folder usually '/apps/' 
+-p PIPELINE optional setting to switch 
+-c CONFIG Backend or site config atm supports the nibbler cluster (used for hacking in slurm temp storage support)
+-t TARGETINTERVALS Target sequencing intervals to find and replace in the json specify as an interval_list formatted file
+-h This help message
+EOF
+)
+while getopts i:s:w:r:f:d:p:c:t:h flag
 do
     case "${flag}" in
         i) INPUTJSON=${OPTARG};;
@@ -19,6 +37,9 @@ do
         d) DATADIR=${OPTARG};;
         p) PIPELINE=${OPTARG};;
         c) CONFIG=${OPTARG};;
+        t) TARGETINTERVALS=${OPTARG};;
+        h) (>2 echo "$HELP" && exit 0);;
+        *) (>2 echo "Invalid command" && exit 1);;
     esac
 done
 
@@ -98,8 +119,13 @@ ml purge
     done
     #fix samplejson link?
     #ls -alh $RUNROOT
-    perl -i.bak -wpe 's?.sampleJson": ".*",?.sampleJson": "'$RUNROOT/sample.json'",?g' $RUNROOT/inputs.json
+    perl -i.sample.bak -wpe 's?.sampleJson": ".*",?.sampleJson": "'$RUNROOT/sample.json'",?g' $RUNROOT/inputs.json
 
+    if [ -e $TARGETINTERVALS ] ; then 
+        TARGETINTERVALS="$(realpath "$TARGETINTERVALS")"
+        >&2 echo "## target interval list '$TARGETINTERVALS'"
+        perl -i.targets.bak -wpe 's/.targetIntervalList": ".*",/.targetIntervalList": "'$$TARGETINTERVALS'",/g' $RUNROOT/inputs.json
+    fi
     #start workflow
     ml cromwell/79-Java-11|| ml cromwell
     

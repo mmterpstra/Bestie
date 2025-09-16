@@ -261,7 +261,8 @@ task HaplotypeCallerGVcf {
         Boolean makeBamOut = true
         Boolean useSpanningEventGenotyping = false
         Float? contamination = 0
-        Int timeMinutes = 1 + ceil(size(inputBam.file, "G")) * 120
+        Int targetScatter = 1
+        Int timeMinutes = 1 + ceil(size(inputBam.file, "G")) * 120 / targetScatter
         Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
         Int disk = ceil(size(inputBam.file, "M")*1.2)
     }
@@ -305,8 +306,7 @@ task HaplotypeCallerGVcf {
         disk: disk
     }
 }
-
-#add genomicsdb import#
+# add genomicsdb import#
 #--merge-contigs-into-num-partitions 25
 
 task CombineGVCFs {
@@ -465,4 +465,137 @@ task SelectVariants {
 }
 
 #
-  
+task Funcotator {
+    input{
+        IndexedFile inputVcf
+        File inputVcfFile
+        File funcotatorDsTar
+        String outputVcfBasename
+        String vcfSuffix = ".vcf.gz"
+        Reference reference
+        String gatkModule = "GATK"
+        Int memoryGb = "4"
+        Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
+        Int timeMinutes = 1 + ceil(size(inputVcfFile, "G")) * 120
+        Int disk = 1 + ceil(size([inputVcfFile,funcotatorDsTar], "G")*1024 * 1.1) #worst case
+    }
+    
+    #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
+    command <<<
+        ml ~{gatkModule}
+        mkdir -p $TMPDIR/funcotatorDataSource
+        (cd $TMPDIR/funcotatorDataSource && tar -xf ~{funcotatorDsTar})
+
+         gatk --java-options "-Xmx~{javaXmxMemoryMb}m -Xms~{javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            Funcotator \
+                --variant ~{inputVcfFile} \
+                --reference  ~{reference.fasta} \
+                --ref-version hg38 \
+                --data-sources-path $TMPDIR/funcotatorDataSource/* \
+                --output ~{outputVcfBasename}~{vcfSuffix} \
+                --output-file-format VCF
+    >>>
+    output {
+        File vcf = outputVcfBasename + vcfSuffix
+        File vcfIdx = outputVcfBasename + vcfSuffix + ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".tbi"
+        }
+    }
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+
+}
+
+task HaplotypeCallerRecall {
+    input {
+        #rray[IndexedFile] inputIndexedBam
+        Array[File] inputBams
+        Array[File] inputBais
+        IndexedFile recallIndexedVcf
+        String outputVcfBasename
+        Reference reference
+        String gatkModule = "GATK"
+        Int memoryGb = "12"
+        Int javaMemoryGb = memoryGb - 1
+        Boolean makeGvcf = true
+        Boolean makeBamOut = false
+        Boolean useSpanningEventGenotyping = false
+        Float? contamination = 0
+        Int targetScatter = 1
+        Int timeMinutes = 5 + ceil(size(inputBams, "G")) * 120 / targetScatter
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(inputBams, "M")*1.2)  
+    }
+
+    String vcfSuffix =  if makeGvcf then ".g.vcf.gz" else ".vcf.gz"
+    String bamoutArg =  if makeBamOut then "-bamout " + outputVcfBasename + ".bamout.bam" else ""
+    
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        set -e
+
+         >&2 echo " ## "$(date)" ## Localising files" 
+        cat ~{write_lines(select_all(inputBams))} \
+            ~{write_lines(inputBais)} | \
+            (while read FILE; do 
+                if [ ! -e "$TMPDIR/""$(basename "$FILE")" ]; then
+                    cp "$FILE" "$TMPDIR/"
+                    if [[ $FILE =~ \.bam$ ]]; then
+                        echo "$TMPDIR/""$(basename "$FILE")">>"./bams_inputs.list" 
+                    fi
+                else
+                    echo "Duplicate file basename spotted $FILE" && exit 1 
+                fi
+            done )
+        >&2 echo " ## "$(date)" ## Loading modules" 
+
+        ml ~{gatkModule}
+        gatk --java-options "-Xmx${javaXmxMemoryMb}m -Xms${javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            HaplotypeCaller \
+            -R $(realpath ~{reference.fasta}) \
+            $( perl -wpe 'chomp; s/^/ --input /g' ./bams_inputs.list ) \
+            --alleles ~{recallIndexedVcf.file} \
+            --intervals ~{recallIndexedVcf.file} \
+            --force-call-filtered-alleles \
+            --force-active \
+            --create-output-variant-index \
+            --max-assembly-region-size 400 \
+            --max-reads-per-alignment-start 200 \
+            --output "~{outputVcfBasename}~{vcfSuffix}" \
+            -contamination ~{default=0 contamination} \
+            ~{bamoutArg}
+
+        touch ~{outputVcfBasename}.bamout.bam
+    }
+    
+    output {
+        File vcf = outputVcfBasename + vcfSuffix
+        File vcfIdx = outputVcfBasename + vcfSuffix + ".tbi"
+        IndexedFile vcfOut = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".tbi"
+        }
+        IndexedFile idxVcf = {
+          "file" : outputVcfBasename + vcfSuffix,
+          "index" : outputVcfBasename + vcfSuffix + ".tbi"
+        }
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+
+#((ml GATK/4.2.4.1-Java-8-LTS && gatk --java-options "-Xmx4g" HaplotypeCaller -R 
+#$(realpath 949052/Homo_sapiens_assembly38.fasta) --input $(realpath MySampleS2_aligned_reads.bam) \
+# --input $(realpath MySampleS2_aligned_reads.bam) --input $(realpath  MySample ) \
+# --alleles  variants_merged_scat0.vcf.gz --force-call-filtered-alleles \
+# --force-active --create-output-variant-index --max-assembly-region-size 400 \
+# --output test.vcf -L variants_merged_scat0.vcf.gz; ) 

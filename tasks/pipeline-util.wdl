@@ -50,14 +50,25 @@ task ReannotateVariants {
     command <<<
         set -eo pipefail
         ml ~{pipelineUtilModule}
-        perl $EBROOTPIPELINEMINUTIL/bin/RecoverSampleAnnotationsAfterCombineVariantsByPosWalk.pl \
-            ~{outputBasename}.complex.vcf \
-            ~{combinedVariants.file} \
-            ~{sep=' ' inputVcfsFiles} \
-            |bgzip -c >  ~{outputBasename}~{vcfSuffix}
-        
-        tabix -p vcf ~{outputBasename}~{vcfSuffix}
-
+        if [ $(gzip -qdc  ~{combinedVariants.file} | grep -vc '^#' ) -eq 0 ]; then 
+            if [[ "~{combinedVariants.file}" == *.vcf.gz ]]; then
+                >&2 echo " ## "$(date)" ## Only header file detected with known extension copying input to output" 
+                cp $(realpath ~{combinedVariants.file}) "~{outputBasename}~{vcfSuffix}"
+                cp $(realpath ~{combinedVariants.index}) "~{outputBasename}~{vcfSuffix}.tbi"
+            else
+                >&2 echo " ## "$(date)" ## ERROR: Only header file detected with unknown extension. Exiting" 
+                exit 1 
+            fi
+        else
+            >&2 echo " ## "$(date)" ## Reannotating with older data." 
+            perl $EBROOTPIPELINEMINUTIL/bin/RecoverSampleAnnotationsAfterCombineVariantsByPosWalk.pl \
+                ~{outputBasename}.complex.vcf \
+                ~{combinedVariants.file} \
+                ~{sep=' ' inputVcfsFiles} \
+                |bgzip -c >  ~{outputBasename}~{vcfSuffix}
+            
+            tabix -p vcf ~{outputBasename}~{vcfSuffix}
+        fi
     >>>
     output {
         File vcf = outputBasename + vcfSuffix

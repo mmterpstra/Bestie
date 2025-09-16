@@ -412,7 +412,7 @@ task SortVcfsIndexed {
         module load ~{picardModule}
         java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
         SortVcf \
-        INPUT= ~{sep=' INPUT= ' inputVcfs} \
+        INPUT=~{sep=' INPUT=' inputVcfs} \
         ~{true="CREATE_INDEX=true " false="" createIndex} \
         OUTPUT=~{outputPrefix}~{vcfSuffix}
 

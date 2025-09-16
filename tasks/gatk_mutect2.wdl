@@ -31,9 +31,9 @@ task MuTect2JointCalling {
         # it bugs out on ? structs
         #select_all([germlineAfVcf.file,germlineAfVcf.index]),
         #select_all([panelOfNormalsVcf.file,panelOfNormalsVcf.index])
-
+        Int targetScatter = 1
         Int timeMinutes = ceil(10 + size(inputBams,
-            "G")*1.2 ) * 50
+            "G")*1.2 ) * 50 / targetScatter
     }
     
     #IndexedFile controlBam = select_first([inputControlBam,inputBam])
