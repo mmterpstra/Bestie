@@ -569,6 +569,9 @@ sub AnnotateSamplesheet {
 				$newSample -> {'reads1FqGz'} = $file;
 				# $file |head -n 1 should contain @M00000:999:000000000-FLOWCELLIDD:TILE:12345:23456:4567 1:N:0:GTGATTCC+TATAGCCT
 				#LH12345:12:FLOWCELLID:TILENO:1000:10000:1000:GTGTC+ACAAC 2:N:0:ANAGCCATTC+AGCTGGTGAA
+				#@SEQUENCER:RUN:FLOWCELLID:TILE:TILELOC:TILELOC:TILELOC:UMI+UMI 1:N:0:BARCODE1+BARCODE2
+				#or older
+				#@SEQUENCER:RUN:FLOWCELLID:TILE:TILELOC:TILELOC:TILELOC 1:N:0:BARCODE1+BARCODE2
 				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
 				my @fqheadsplit = split /[: \@]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
@@ -578,6 +581,12 @@ sub AnnotateSamplesheet {
 				$newSample -> {'seqType'} = $fqheadsplit[3];
 				$newSample -> {'lane'} = $fqheadsplit[4];#this should create an uniq list of lanes
 				$newSample -> {'barcode'}=$fqheadsplit[-1] if($fqheadsplit[-1] =~ m/[ATCGN\+]{6,}/);
+				if($fqheadsplit[8] =~ m/[ATCGN\+]{6,}/){
+					#assuming somewhat modern format this should work
+					$newSample -> {'extractUmisFromReadNames'}= "true" 
+				}else{
+					$newSample -> {'extractUmisFromReadNames'}= "false" 
+				}
 				$newSample -> {'reads1FqGzMd5'}=Md5Sum($newSample -> {"reads1FqGz"});
 			}elsif($file =~ m/_R2(\.f|_\d+\.f)/){
 				$newSample -> {'reads2FqGz'} = $file;
@@ -840,7 +849,9 @@ sub SamplesheetAsJSONString {
 					"platform": "'.$rg -> {'sequencer'}.'",
 					"flowcell":"'.$rg -> {'flowcellId'}.'",
 					"sequencing_center": "undef",
-					"extractUmisFromReadNames": false,
+					"extractUmisFromReadNames": '. (
+						(defined($rg -> {'extractUmisFromReadNames'} ) && $rg -> {'extractUmisFromReadNames'} eq "true")?"true":"false"
+					).',
 					"runTwistUmi": false
 				}';
 			$string = $string .',' if(($rgidx+1) < scalar(@{$h{"SAMPLENAMES"} -> { $samplename }}));

@@ -27,6 +27,7 @@ workflow BamsToSomaticLofreqVariants {
         String pipelineUtilModule = "pipeline-util/0.8.20-5-ga0a29bb-foss-2024a"
         String lofreqModule = "LoFreq/2.1.5-foss-2024a"
         Reference reference
+        Boolean runViterbi = true
         #IndexedFile dbsnp
         #IndexedFile cosmic
         #IndexedFile gnomadOnlyAfVcf
@@ -72,26 +73,32 @@ workflow BamsToSomaticLofreqVariants {
     #idk how it goes for wdl validation though
     #Array[SampleDescriptor] normalSamples = []
     scatter (sample in sampleConfig.samples) {
-        call lofreq.LoFreqViterbiCached as viterbiRealingment {
-            input:
-                inputBamIndexed=select_first([sample.alignedReads]),
-                reference=reference,
-                picardModule=picardModule,
-                lofreqModule=lofreqModule,
-                outputBasename=sample.name + '_viterbi'
+        if(runViterbi){
+            call lofreq.LoFreqViterbi as viterbiRealingment {
+                input:
+                    inputBamIndexed=select_first([sample.alignedReads]),
+                    reference=reference,
+                    picardModule=picardModule,
+                    lofreqModule=lofreqModule,
+                    outputBasename=sample.name + '_viterbi'
+            }
+            
+            call common.AddAlignedReadsToSampleDescriptor as addViterbiBamToSample {
+                input:
+                    sample=sample,
+                    bam=viterbiRealingment.bamOut
+            }
+            SampleDescriptor viterbiTmpSample = addViterbiBamToSample.sampleUpdated 
         }
-        
-        call common.AddAlignedReadsToSampleDescriptor as addViterbiBamToSample {
-            input:
-                sample=sample,
-                bam=viterbiRealingment.bamOut
-        }
-        
-        SampleDescriptor viterbiSample = addViterbiBamToSample.sampleUpdated
+        SampleDescriptor viterbiSample = if runViterbi then select_first([viterbiTmpSample,sample]) else sample
     }
 
     #this works under the assumtion that at least one sampledescriptor is present for each normal name
-    
+    call common.InverseSelection as tumorSampleSelection {
+        input:
+            array=sampleNames,
+            selection=uniqueNormals.outArray,
+    }
     scatter(normalname in select_all(uniqueNormals.outArray)){
         scatter (sample in viterbiSample) {
             if (sample.name == normalname){
@@ -100,6 +107,18 @@ workflow BamsToSomaticLofreqVariants {
         }
         Array[SampleDescriptor] viterbiNormal = select_all(viterbiNormalSampleScat)
     }
+    Array [SampleDescriptor] viterbiNormalSamples = select_all(flatten(viterbiNormal))
+
+    scatter(tumorName in select_all(tumorSampleSelection.result)){
+        scatter (sample in viterbiSample) {
+            if (sample.name == tumorName){
+                SampleDescriptor viterbiTumorSampleScat = sample
+            }
+        }
+        Array[SampleDescriptor] viterbiTumor = select_all(viterbiTumorSampleScat)
+    }
+    Array [SampleDescriptor] viterbiTumorSamples = select_all(flatten(viterbiTumor))
+
     #better to post filter on normal samples 
     #scatter (sample in viterbiSample) {
     #    scatter(normalname in select_all(uniqueNormals.outArray)){
@@ -120,7 +139,6 @@ workflow BamsToSomaticLofreqVariants {
     #Array[SampleDescriptor] viterbiTumor = select_all(viterbiTumorSampleScat)
 
 
-    Array [SampleDescriptor] viterbiNormalSamples = select_all(flatten(viterbiNormal))
     #this might also be a way of solving the upper problem of merging the optional normalMatched samples to a list of normal samples
     #call common.SelectNormals as selectNormalSamples {
     #    input:
@@ -129,7 +147,7 @@ workflow BamsToSomaticLofreqVariants {
     #}
 
     scatter (scatteredtargetsIdx in range(length(targetIntervals))) {
-        scatter(sample in viterbiSample){
+        scatter(sample in viterbiTumorSamples){
             IndexedFile sampleLofreqIndexedBam = select_first([sample.alignedReads])
             scatter(normal in viterbiNormalSamples){
                 IndexedFile normalIndexedBam = select_first([normal.alignedReads])
@@ -141,10 +159,10 @@ workflow BamsToSomaticLofreqVariants {
                             picardModule=picardModule,
                             inputNormalBam=normalIndexedBam.file,
                             inputNormalBamIndex=normalIndexedBam.index,
-                            tumorSampleName=sample.name,
                             normalSampleName=normal.name,
                             inputTumorBam=sampleLofreqIndexedBam.file,
                             inputTumorBamIndex=sampleLofreqIndexedBam.index,
+                            tumorSampleName=sample.name,
                             reference=reference,
                             targetIntervalList=targetIntervals[scatteredtargetsIdx],
                             outputVcfBasename='lofreq_sample_'+sample.name+'_norm_'+normal.name+'_scat'+scatteredtargetsIdx+'_',
@@ -212,7 +230,7 @@ workflow BamsToSomaticLofreqVariants {
         Array[File] lofreqScatteredVcfs = select_all(flatten(normalisedTumorNormalSampleLofreqVcfs))
         Array[IndexedFile] lofreqScatteredIdxVcfs = select_all(flatten(normalisedTumorNormalSampleLofreqIdxVcfs))
         #merge all samples into one
-        call bcftools.Isec as mergeLoFreqVariants  {
+        call bcftools.Isec as mergeLoFreqVariants {
             input:
                 bcftoolsModule=bcftoolsModule,
                 inputVcfs=select_all(mergeLoFreqNormalsScat.vcf),
@@ -253,7 +271,7 @@ workflow BamsToSomaticLofreqVariants {
             input:
                 bcftoolsModule=bcftoolsModule,
                 inputVcf = annotateLofreqCallers.vcf,
-                outputBasename = "freebayes_normals_scat_"+scatteredtargetsIdx,
+                outputBasename = "lofreq_normals_scat_"+scatteredtargetsIdx,
                 samples=uniqueNormals.outArray
         }
         call util.AdFilter as lofreqFilterGermline {
@@ -261,7 +279,7 @@ workflow BamsToSomaticLofreqVariants {
                 inputVariantsToFilter = annotateLofreqCallers.vcfOut,
                 inputVcfsFiles=[lofreqNormals.vcf],
                 inputVcfs=[lofreqNormals.vcfOut],
-                outputBasename='freebayes_normals_filt_scat_'+ scatteredtargetsIdx,
+                outputBasename='lofreq_normals_filt_scat_'+ scatteredtargetsIdx,
         }
     }
     #calcing lofreq raw values pre merge would be nasty. 

@@ -41,7 +41,7 @@
             }
         },
         {
-            "name": "MySampleS2",
+            "name": "MySample2",
             "normal":"MySample",
             "readgroups": [
                 {

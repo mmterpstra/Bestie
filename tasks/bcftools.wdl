@@ -58,8 +58,9 @@ task Norm {
             --old-rec-tag OLD_RECORD \
             --write-index=tbi \
             -m -any \
+            --sort lex \
             --output ~{outputBasename}".vcf.gz" \
-            ~{inputVcf} \
+            ~{inputVcf} 
 
     }
 
@@ -67,6 +68,10 @@ task Norm {
         File vcf = outputBasename + ".vcf.gz"
         File vcfIdx = vcf + ".tbi"
         IndexedFile vcfOut = {
+          "file" : vcf,
+          "index" : vcfIdx
+        }
+        IndexedFile idxVcf = {
           "file" : vcf,
           "index" : vcfIdx
         }
@@ -133,6 +138,8 @@ task Isec {
         String outputBasename
         Int memoryGb = "1"
         String bcftoolsModule = "BCFtools/1.21-GCC-12.2.0"
+        Boolean applyFilters = false
+        String filters = 'PASS,.'
         Int timeMinutes = 1 + ceil(size(inputVcfs, "G")) * 120
         #Possible values: {unsorted, queryname, coordinate, duplicate, unknown} #
         Int disk = 1 + ceil(size(inputVcfs, "G")) * 1024
@@ -155,18 +162,23 @@ task Isec {
     command <<<
         set -e -o pipefail
         module load ~{bcftoolsModule} 
-        NFILES=$(ls ~{sep=' 'inputVcfs} | wc -l )
+        NFILES=$(ls ~{sep=' ' inputVcfs} | wc -l )
         if [ $NFILES -ge 2 ] && \
-            [ $(gzip -qdc ~{sep=' 'inputVcfs} | head -n 10000 | grep -cv '^#') -gt 0 ]; then
+            [ $(gzip -qdc ~{sep=' ' inputVcfs} | head -n 50000 | grep -cv '^#') -gt 0 ]; then
 
-            bcftools isec \
-                -c all --nfiles +~{minIntersect} \
-                --output /dev/stdout \
-                ~{sep=' ' inputVcfs} | \
-                python3 -c "import sys; print('##fileformat=VCFv4.2\n'+ \
-                '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO'); \
-                [print('\t'.join([fields[0],fields[1],'.',fields[2],fields[3],'.','.','.'])) for line in sys.stdin if (fields:=line.rstrip('\n').split('\t'))]"| \
-                bgzip -c > ~{outputBasename}.vcf.gz
+
+            (
+                bgzip -dc  ~{inputVcfs[0]} | grep '##fileformat\|##contig' ;
+                bcftools isec \
+                    -c all --nfiles +~{minIntersect} \
+                    --output /dev/stdout \
+                    ~{sep=' ' inputVcfs} \
+                    ~{if applyFilters then "--apply-filters "+ filters else "" } | \
+                    python3 -c "import sys; print( \
+                    '##INFO=<ID=ISEC,Number=1,Type=String,Description=\"bcftools isec results as a 0/1 presence table from files ~{sep=' ' inputVcfs}\">\n' + \
+                    '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO'); \
+                    [print('\t'.join([fields[0],fields[1],'.',fields[2],fields[3],'.','.','ISEC='+fields[4]])) for line in sys.stdin if (fields:=line.rstrip('\n').split('\t'))]"
+            )| bgzip -c > ~{outputBasename}.vcf.gz
             tabix -p vcf ~{outputBasename}.vcf.gz
 
         else
@@ -201,7 +213,9 @@ task Isec {
 task Concat {
     input {
         Array [File] inputVcfs
+        #the following is not used explictly but implicitly by using `find ../inputs/*`
         Array [IndexedFile] inputIndexedVcfs
+
         String outputBasename
         Int memoryGb = "1"
         String bcftoolsModule = "BCFtools/1.21-GCC-12.2.0"
@@ -260,7 +274,7 @@ task Concat {
     output {
         File vcf = outputBasename + ".vcf.gz"
         File vcfIdx = vcf + ".tbi"
-        IndexedFile vcfOut = {
+        IndexedFile idxVcf = {
           "file" : vcf,
           "index" : vcfIdx
         }
@@ -310,12 +324,14 @@ task Stats {
         >&2 echo " ## "$(date)" ## Running bcftools " 
 
         #this catches the single scatter interval segfault of bcftools 
-        if [ $(wc -l "./vcfs_inputs.list" ) -eq 2 ]; then
-            for FILE in $(cat "./vcfs_inputs.list"); do
-                if [[ $FILE =~ \.vcf.gz$ ]]; then
-                    bcftools stats $FILE >  ~{outputBasename}".bcftools_stats"
+        if [ "$(wc -l < "./vcfs_inputs.list" )" -eq 1 ]; then
+            while IFS= read -r FILE; do
+                if [[ $FILE == *.vcf.gz ]]; then
+                    bcftools stats "$FILE" > "~{outputBasename}"".bcftools_stats"
+                else 
+                    >&2 echo "## ""$(date)"" ## Warning ## $FILE is not recognised as .vcf.gz file. "
                 fi
-            done
+            done < "./vcfs_inputs.list"
         else 
             #this fifo here is to improve multiqc output 
             # Since it tends to only take a single file with the same output name 

@@ -6,6 +6,7 @@ import "../tasks/trimgalore.wdl" as trimgalore
 import "../tasks/cutadapt.wdl" as cutadapt
 import "../tasks/fastqc.wdl" as fastqc
 import "../tasks/picard.wdl" as picard
+import "../tasks/samtools.wdl" as samtools
 import "../tasks/fgbio.wdl" as fgbio
 import "../tasks/fgbio_picard.wdl" as fgbio_picard
 import "../tasks/alignment.wdl" as align
@@ -27,10 +28,12 @@ workflow FastqToBam {
         String fgbioModule = "fgbio/1.3.0"
         String marktrimmingModule = "marktrimming/0.0.2-GCC-12.2.0"
         Boolean runCutadapt = false 
+        Boolean removeDuplicates = false
         String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Boolean runTwistUmi = false
+        Boolean mergeBamFilesCoordinateSort = false
         Boolean runDuplexConsensus = false
         Boolean runBaseQualityRecalibration = true
         Reference reference
@@ -42,10 +45,10 @@ workflow FastqToBam {
     }
     
     #Link the sample specific value back to this sample or use the dafault value (usually false)
-    Boolean runTwistUmiSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi]) else runTwistUmi
-    Boolean runCutadaptSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi]) else runCutadapt
+    Boolean runTwistUmiSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi,runTwistUmi]) else runTwistUmi
+    Boolean runCutadaptSample = if (defined(sample.runTwistUmi)) then select_first([sample.runTwistUmi,runTwistUmi]) else runCutadapt
 
-    Boolean coordinateSort = if (runTwistUmiSample) then true else false
+    Boolean coordinateSort = if (runTwistUmiSample) then true else mergeBamFilesCoordinateSort
     scatter (rg in sample.readgroups) {
         #linking for uniform filenames
         call common.CreateLink as getfastq1 {
@@ -165,7 +168,12 @@ workflow FastqToBam {
                     outputBamBasename = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'NNNNNNN']) + "." + rg.lane + "_aligned",
                     coordinateSort = coordinateSort
             }
-
+            #call samtools.RemoveNumis as removeNumis {
+            #    input:
+            #        inputBam = bwaAlignment.bam,
+            #        samtoolsModule = samtoolsModule,
+            #        outputBasename = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'NNNNNNN']) + "." + rg.lane + "_aligned_umicleaned"
+            #}
         }
         if(runCutadaptSample) {
               
@@ -201,13 +209,33 @@ workflow FastqToBam {
     }
     #runs basicUmiAwareMarkDups
     if (runTwistUmiSample) {
-        call picard.UmiAwareMarkDuplicatesWithMateCigar as markDupsUmi {
+        #call picard.UmiAwareMarkDuplicatesWithMateCigar as markDupsUmi {
+        #    input:
+        #        picardModule = picardModule,
+        #        inputBams = flatten(removeNumis.bam),
+        #        removeDuplicates = removeDuplicates,
+        #        outputBamBasename = sample.name + '_markdup_umi',
+        #        outputMetrics = sample.name + '.markdup_umi_metrics',
+        #        outputUMIMetrics = sample.name + '.markdup_umi_umi_metrics'
+        #}
+
+        #call picard.MarkDuplicates as markDupsDefaultUmi {
+        #    input:
+        #        barcodeTag = "RX",
+        #        picardModule = picardModule,
+        #        removeDuplicates = removeDuplicates,
+        #        inputBams = flatten(removeNumis.bam),
+        #        outputBamBasename = sample.name + '_markdup_umi',
+        #        outputMetrics = sample.name + '.markdup_umi_metrics'
+        #}
+        call picard.SortedMarkDuplicates as sortedMarkDupsDefaultUmi {
             input:
+                barcodeTag = "RX",
                 picardModule = picardModule,
+                removeDuplicates = removeDuplicates,
                 inputBams = flatten(bwaAlignment.bam),
-                outputBamBasename = sample.name + '_markdup_umi',
-                outputMetrics = sample.name + '.markdup_umi_metrics',
-                outputUMIMetrics = sample.name + '.markdup_umi_umi_metrics'
+                outputBamBasename = sample.name + '_sort_markdup_umi',
+                outputMetrics = sample.name + '.sort_markdup_umi_metrics'
         }
         #
         call qc.bamQualityControl as bamUmiQualityControl {
@@ -215,16 +243,16 @@ workflow FastqToBam {
                 gatkModule = gatkModule,
                 picardModule = picardModule,
                 reference = reference,
-                inputBam = markDupsUmi.bam,
-                inputBai = select_first([markDupsUmi.bai]),
+                inputBam = sortedMarkDupsDefaultUmi.bam,
+                inputBai = select_first([sortedMarkDupsDefaultUmi.bai]),
                 outputPrefix =  sample.name + '_markdup_umi_sort_qc',
                 targetIntervalList = targetIntervalList,
                 byReadGroup = true
         }
     }
 
-    File DuplicateMarkedBam = if(runTwistUmiSample) then select_first([markDupsUmi.bam,sortBam.bam]) else sortBam.bam
-    File DuplicateMarkedBai = if(runTwistUmiSample) then select_first([markDupsUmi.bai,sortBam.bai]) else select_first([sortBam.bai])
+    File DuplicateMarkedBam = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bam,sortBam.bam]) else sortBam.bam
+    File DuplicateMarkedBai = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bai,sortBam.bai]) else select_first([sortBam.bai])
     #runs Duplexconsensus Pipeline
 
     if(runTwistUmiSample && runDuplexConsensus){
@@ -303,6 +331,7 @@ workflow FastqToBam {
     call picard.MarkDuplicates as markDups {
         input:
             picardModule = picardModule,
+            removeDuplicates = removeDuplicates,
             inputBams = flatten(bwaAlignment.bam),
             outputBamBasename = sample.name + '_markdup',
             outputMetrics = sample.name + '.markdup_metrics'

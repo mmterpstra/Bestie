@@ -2,17 +2,18 @@ version 1.0
 
 import "../structs.wdl"
 
-#ichorCNA related tasks
+#lofreq2 related tasks
 
-task LoFreqCall {
+task Call {
     input {
         File inputBam
         File inputBamIndex
-
         Reference reference
         File targetIntervalList
+        String sampleName
         String outputVcfBasename
         String lofreqModule = "LoFreq"
+        String pipelineUtilModule = "pipeline-util" 
         Int? memoryGb = "4"
         Int targetScatter = 1
         Int disk = ceil(size([inputBam,inputBamIndex], "M")*1.2)
@@ -35,24 +36,77 @@ task LoFreqCall {
                     echo "Duplicate file basename spotted $FILE" && exit 1 
                 fi
             done )
-        ml ~{lofreqModule}
-        #on the fly to bed conversion
-        grep -v '^@' ~{targetIntervalList} | perl -wlane 'print join("\t",($F[0],$F[1]-1,$F[2],$.));' > targets.bed
+        
+        (
+            ml ~{lofreqModule}
+            #on the fly to bed conversion
+            grep -v '^@' ~{targetIntervalList} | perl -wlane 'print join("\t",($F[0],$F[1]-1,$F[2],$.));' > targets.bed
         
         
 
-        lofreq call \
-            --ref ~{reference.fasta} \
-            --bed ./targets.bed \
-            --out - \
-            "$TMPDIR/""$(basename "~{inputBam}")"| \
-            bgzip -c >  \
-            ~{outputVcfBasename}~{vcfSuffix} 
+            lofreq call \
+                --ref ~{reference.fasta} \
+                --bed ./targets.bed \
+                --out - \
+                "$TMPDIR/""$(basename "~{inputBam}")"| \
+                bgzip -c >  \
+                "~{outputVcfBasename}"".tmp.""~{vcfSuffix}"
+        )
+        (
+            ml ~{pipelineUtilModule}
+            if [ $(bgzip -dc "~{outputVcfBasename}"".tmp.""~{vcfSuffix}" | grep -c '^#'  ) -eq 0 ]; then 
+                        cat << EOF | bgzip -c >  "~{outputVcfBasename}""~{vcfSuffix}"
+##fileformat=VCFv4.2
+##fileDate=20250101
+##source=lofreq call -d 101000 -f ref.fasta --verbose --no-default-filter -b 1 -l ./targets.bed --call-indels -a 0.010000 -C 7 -s -S vcf.gz,indels.vcf.gz -o tumor_relaxed.vcf.gz 
+##reference=ref.fasta
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw Depth">
+##INFO=<ID=AF,Number=1,Type=Float,Description="Allele Frequency">
+##INFO=<ID=SB,Number=1,Type=Integer,Description="Phred-scaled strand bias at this position">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="Counts for ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=CONSVAR,Number=0,Type=Flag,Description="Indicates that the variant is a consensus variant (as opposed to a low frequency variant).">
+##INFO=<ID=HRUN,Number=1,Type=Integer,Description="Homopolymer length to the right of report indel position">
+##FILTER=<ID=min_dp_7,Description="Minimum Coverage 7">
+##FILTER=<ID=max_dp_100000,Description="Maximum Coverage 100000">
+##FILTER=<ID=sb_fdr,Description="Strand-Bias Multiple Testing Correction: fdr corr. pvalue > 0.001000">
+##FILTER=<ID=indelqual_bonf,Description="Indel Quality Multiple Testing Correction: bonf corr. pvalue < 0.010000">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	~{sampleName}
+EOF
+            else
+                #This converts the lofreq output to a cleaner formatted vcf file with the tumor sample speficic data in the info fields
+                #This also adds in the normalsample as a filler for completeness.  
+                perl -wpe 's/^##fileformat=VCFv4\.0$/##fileformat=VCFv4.2/;
+                    if($_ =~ /^#CHROM/){
+                        print "##INFO=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+                        print "##INFO=<ID=AD,Number=2,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n";
+                    }
+                    if(m/DP4=(\d+(,\d+){3})(;|\n)/){
+                        my @dp4=split(",",$1);
+                        $_=substr($_,0,-1).";AD=".($dp4[0]+$dp4[1]).",".($dp4[2]+$dp4[3])."\n";
+                        if($dp4[0]+$dp4[1]> 0){
+                            $_=substr($_,0,-1).";GT=0/1\n";
+                        }else{
+                            $_=substr($_,0,-1).";GT=1/1\n";
+                        }
+                    };' <(bgzip -dc "~{outputVcfBasename}"".tmp.""~{vcfSuffix}" ) > "~{outputVcfBasename}"".tmp_fixed"".vcf"
+                InfoFieldsToGenotypeFields.pl \
+                -f 'GT,AD,DP,DP4,AF,SB' \
+                -g "~{sampleName}" \
+                -i "~{outputVcfBasename}"".tmp_fixed"".vcf" | \
+                bgzip -c >"~{outputVcfBasename}""~{vcfSuffix}"
+                tabix -p vcf "~{outputVcfBasename}""~{vcfSuffix}"
+            fi
+        )
     >>>
     
     output {
         File vcf = outputVcfBasename + vcfSuffix
         File vcfIdx = outputVcfBasename + vcfSuffix + ".tbi"
+        IndexedFile idxVcf = { 
+          "file" : outputVcfBasename  + vcfSuffix,
+          "index" : outputVcfBasename  + vcfSuffix + ".tbi"
+        }
     }
 
     runtime {
@@ -77,7 +131,7 @@ task LoFreqSomatic {
         String pipelineUtilModule= "pipeline-util"
         Int targetScatter = 1
         Int? memoryGb = "4"
-        Int timeMinutes = 1 + ceil(size([inputNormalBam,inputTumorBam], "G")) * 120 / targetScatter 
+        Int timeMinutes = 1 + ceil(size([inputNormalBam,inputTumorBam], "G")) * 150 / targetScatter 
         Int disk = ceil(size([inputNormalBam,inputTumorBam], "M")*1.2)
     }
     String vcfSuffix =  ".vcf.gz"
@@ -123,7 +177,7 @@ task LoFreqSomatic {
                 done )
             )
         )
-        #on the fly to bed conversion
+        #on the fly to strict sample info vcf conversion
         (
             ml ~{pipelineUtilModule}
 

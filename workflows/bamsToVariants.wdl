@@ -15,6 +15,7 @@ import "../tasks/freebayes.wdl" as freebayes
 import "../tasks/lofreq.wdl" as lofreq
 import "../tasks/pipeline-util.wdl" as util
 import "../tasks/ichorcna.wdl" as ichorcna
+import "../tasks/vep.wdl" as vep
 import "../workflows/qc.wdl" as qc
 import "../workflows/bamsToGermlineVariants.wdl" as bamsToGermlineVariants
 import "../workflows/bamsToSomaticVariants.wdl" as bamsToSomaticVariants
@@ -30,6 +31,7 @@ workflow BamsToVariants {
         String freebayesModule = "freebayes/1.3.7-gfbf-2024a-R-4.4.2"
         String pipelineUtilModule = "pipeline-util/0.8.20-5-ga0a29bb-foss-2024a"
         String lofreqModule = "LoFreq/2.1.5-foss-2024a"
+        String vepModule = "VEP/113.3-GCC-13.3.0" 
         Reference reference
         IndexedFile dbsnp
         #IndexedFile cosmic
@@ -37,6 +39,7 @@ workflow BamsToVariants {
         IndexedFile panelOfNormalsVcf
         Array[IndexedFile] knownSites
         File? funcotatorDsTar
+        File? vepCacheTar
         #Array[SampleDescriptor] sample
         File? sampleJson
         SampleConfig? sampleConfigIn 
@@ -64,16 +67,29 @@ workflow BamsToVariants {
             freebayesModule = freebayesModule,
             pipelineUtilModule = pipelineUtilModule,
             lofreqModule = lofreqModule,
+            vepModule = vepModule,
             reference = reference,
             dbsnp = dbsnp,
             gnomadOnlyAfVcf = gnomadOnlyAfVcf,
+            funcotatorDsTar = funcotatorDsTar,
+            vepCacheTar = vepCacheTar,
             panelOfNormalsVcf = panelOfNormalsVcf,
             knownSites = knownSites,
             sampleConfigIn = sampleConfig, 
             targetIntervals = splitIntervals.paddedScatteredIntervalList
     }
 
-         
+    if(defined(vepCacheTar)){
+        call vep.AnnotateTmpStorage as vepannotateSomaticScattered {
+            input:
+                vepModule = vepModule,
+                reference = reference,
+                vepCacheTar = select_first([vepCacheTar,reference.fasta]),
+                inputIdxVcf = somaticScattered.somaticIdxVcf,
+                outputBasename = "somatic_vep",
+        }
+
+    }
     #call bamsToGermlineVariants.BamsToGermlineVariants as germline {
     #    input:
     #        gatkModule = gatkModule,

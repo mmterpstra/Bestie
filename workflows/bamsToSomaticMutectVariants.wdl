@@ -108,7 +108,8 @@ workflow BamsToSomaticMutectVariants {
                 normals = uniqueNormals.outArray,
                 targetIntervalList = targetIntervals[scatteredtargetsIdx],
                 outputVcfBasename = "mutect_joint_calls_scat"+scatteredtargetsIdx,
-                targetScatter = length(targetIntervals)
+                targetScatter = length(targetIntervals),
+                maxReadsPerAlignmentStart = 100
         }
 
     }    

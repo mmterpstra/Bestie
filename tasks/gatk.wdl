@@ -141,6 +141,8 @@ task DepthOfCoverage {
         -I ~{inputBam} \
         --output "~{outputMetricsBasename}.dcov_metrics" \
         -L "~{targetIntervalList}" \
+        --start 1 \
+        --stop 2000 \
         --summary-coverage-threshold ~{sep=' --summary-coverage-threshold ' summaryCoverageThresholds} 
     }
     
@@ -387,17 +389,17 @@ task GenotypeGVCFs {
 
 task GenomicsDBImport {
     input{
-        Array[IndexedFile] inputVcfs
-        Array[File] inputVcfsFiles
+        Array[IndexedFile] inputIdxVcfs
+        Array[File] inputVcfs
         String outputBasename
         File interval_list
         Reference reference
         String gatkModule = "GATK"
         Int threads = 6
-        Int memoryGb = "12"
+        Int memoryGb = "5"
         Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
-        Int timeMinutes = 1 + ceil(size(inputVcfsFiles, "G")) * 120
-        Int disk = 1 + ceil(size(inputVcfsFiles, "G") * 2.1) #worst case
+        Int timeMinutes = 1 + ceil(size(inputVcfs, "G")) * 120
+        Int disk = 1 + ceil(size(inputVcfs, "G") * 2.1) #worst case
       }
     #Array[File] gvcfs = select_all(inputGVcfs)[]["file"]
     command <<<
@@ -405,9 +407,9 @@ task GenomicsDBImport {
         ml ~{gatkModule}
         gatk --java-options "-Xmx4g -Xms4g" GenomicsDBImport \
             --reference ~{reference.fasta} \
-            --variant ~{sep=' --variant ' inputVcfsFiles} \
+            --variant ~{sep=' --variant ' inputVcfs} \
             --genomicsdb-workspace-path ~{outputBasename}.genomicsdb \
-            --tmp-dir=$TMPDIR \
+            --tmp-dir $TMPDIR \
             --genomicsdb-shared-posixfs-optimizations true \
             --batch-size 50 \
             --reader-threads ~{threads - 1} \
@@ -435,7 +437,7 @@ task SelectVariants {
         String vcfSuffix = ".vcf.gz"
         Reference reference
         String gatkModule = "GATK"
-        Int memoryGb = "12"
+        Int memoryGb = "5"
         Int javaXmxMemoryMb = ceil((memoryGb - 0.5) * 1024)
         Int timeMinutes = 1 + ceil(size(genomicsDbTar, "G")) * 120
         Int disk = 1 + ceil(size(genomicsDbTar, "G") * 2.1) #worst case
@@ -521,14 +523,15 @@ task HaplotypeCallerRecall {
         Reference reference
         String gatkModule = "GATK"
         Int memoryGb = "12"
-        Int javaMemoryGb = memoryGb - 1
+        #Int javaMemoryGb = memoryGb - 1
         Boolean makeGvcf = true
         Boolean makeBamOut = false
+        #useSpanningEventGenotyping creates spanning event or  aternative reference calls in your dataset usually confusing downstream processing tools 
         Boolean useSpanningEventGenotyping = false
         Float? contamination = 0
         Int targetScatter = 1
         Int timeMinutes = 5 + ceil(size(inputBams, "G")) * 120 / targetScatter
-        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int javaXmxMemoryMb = select_first ([floor((memoryGb-1)*0.9*1024),floor(10*0.9*1024)])
         Int disk = ceil(size(inputBams, "M")*1.2)  
     }
 
@@ -536,7 +539,7 @@ task HaplotypeCallerRecall {
     String bamoutArg =  if makeBamOut then "-bamout " + outputVcfBasename + ".bamout.bam" else ""
     
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
-    command {
+    command <<<
         set -e
 
          >&2 echo " ## "$(date)" ## Localising files" 
@@ -555,7 +558,7 @@ task HaplotypeCallerRecall {
         >&2 echo " ## "$(date)" ## Loading modules" 
 
         ml ~{gatkModule}
-        gatk --java-options "-Xmx${javaXmxMemoryMb}m -Xms${javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+        gatk --java-options "-Xmx~{javaXmxMemoryMb}m -Xms~{javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
             HaplotypeCaller \
             -R $(realpath ~{reference.fasta}) \
             $( perl -wpe 'chomp; s/^/ --input /g' ./bams_inputs.list ) \
@@ -568,10 +571,11 @@ task HaplotypeCallerRecall {
             --max-reads-per-alignment-start 200 \
             --output "~{outputVcfBasename}~{vcfSuffix}" \
             -contamination ~{default=0 contamination} \
+            ~{ if useSpanningEventGenotyping then "" else " --disable-spanning-event-genotyping "} \
             ~{bamoutArg}
 
         touch ~{outputVcfBasename}.bamout.bam
-    }
+    >>>
     
     output {
         File vcf = outputVcfBasename + vcfSuffix
@@ -592,10 +596,71 @@ task HaplotypeCallerRecall {
         disk: disk
     }
 }
-
+#
 #((ml GATK/4.2.4.1-Java-8-LTS && gatk --java-options "-Xmx4g" HaplotypeCaller -R 
 #$(realpath 949052/Homo_sapiens_assembly38.fasta) --input $(realpath MySampleS2_aligned_reads.bam) \
 # --input $(realpath MySampleS2_aligned_reads.bam) --input $(realpath  MySample ) \
 # --alleles  variants_merged_scat0.vcf.gz --force-call-filtered-alleles \
 # --force-active --create-output-variant-index --max-assembly-region-size 400 \
 # --output test.vcf -L variants_merged_scat0.vcf.gz; ) 
+
+task VariantEval {
+    input {
+        Array [File] inputVcfs
+        Array[IndexedFile] inputIdxVcfs
+        Array [String] inputTags
+        File? KnownVariants #dbsnp
+        Array [File] inputCompVcfs = inputVcfs
+        Array [IndexedFile] inputCompIdxVcfs = inputIdxVcfs
+        Array [String] inputCompTags = inputTags
+        #File inputBai
+        #File targetIntervalList
+        String outputBasename
+        Reference reference
+        String gatkModule = "GATK"
+        Int memoryGb = "4"
+        Int javaMemoryGb = memoryGb - 1
+        Int timeMinutes = 10 + ceil(size(inputVcfs, "G")) * 20
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(inputVcfs, "M")*1.2)
+    }
+    #https://gatk.broadinstitute.org/hc/en-us/articles/30332019053723-VariantEval-BETA
+    # gatk VariantEval \
+    #-R reference.fasta \
+    #-O output.eval.grp \
+    #--eval set1:set1.vcf \
+    #--eval set2:set2.vcf \
+    #[--comp comp.vcf]
+ 
+    command {
+        set -e
+        EVALSETS=""
+        while IFS="" read -r LINE; do
+            EVALSETS="$EVALSETS"" --eval:$LINE"
+        done < <(paste ~{write_lines(select_all(inputTags))} ~{write_lines(select_all(inputVcfs))} -d \  )
+        COMPSETS=""
+        while IFS="" read -r LINE; do
+            EVALSETS="$EVALSETS"" --comp:$LINE"
+        done < <(paste ~{write_lines(select_all(inputCompTags))} ~{write_lines(select_all(inputCompVcfs))} -d \  )
+
+        ml ~{gatkModule}
+        gatk --java-options "-Xmx${javaXmxMemoryMb}m -Xms${javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            VariantEval \
+            -R ~{reference.fasta} \
+            $EVALSETS \
+            $COMPSETS \
+            -O "~{outputBasename}.grp" || touch "~{outputBasename}.grp"
+
+        
+    }
+    
+    output {
+        File comparison = outputBasename + '.grp'
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}

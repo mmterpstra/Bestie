@@ -109,6 +109,29 @@ task UniqueArray {
     }
 }
 
+task InverseSelection {
+    input {
+        Array[String] array
+        Array[String] selection        
+        Int memory = 256
+    }
+
+    command {
+        #all data is 'com'pared and only lines unique to the first input file are emitted
+        comm -23 <(sort -u ~{write_lines(array)}) <(sort -u ~{write_lines(selection)}) \
+             > ./result.list
+    }
+
+    output {
+        Array[String] result = read_lines("./result.list")
+    }
+
+    runtime {
+        memory: memory
+        timeMinutes:5
+    }
+}
+
 task CreateIndexedLink {
     # Making this of type File will create a link to the copy of the file in
     # the execution folder, instead of the actual file.
@@ -121,7 +144,7 @@ task CreateIndexedLink {
     }
 
     command {
-        echo $PWD
+        echo $PWD 
         mkdir -p index/
         mkdir -p file/
         ln -t "./file/" -~{if hardLink then "" else "s" }f "$(realpath "~{inputFile}")"  

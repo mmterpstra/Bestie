@@ -36,12 +36,12 @@
                 }
             ],
             "alignedReads": {
-                "file"  : "data/raw/bam/local/MySample_markdup_sort.bam",
-                "index" : "data/raw/bam/local/MySample_markdup_sort.bai" 
+                "file"  : "data/raw/bam/MySample_markdup_sort.bam",
+                "index" : "data/raw/bam/MySample_markdup_sort.bai" 
             }
         },
         {
-            "name": "MySample2",
+            "name": "MySampleS2",
             "normal":"MySample",
             "readgroups": [
                 {
@@ -61,8 +61,8 @@
                 }
             ],
             "alignedReads": {
-                "file"  : "data/raw/bam/local/MySample2_markdup_sort.bam",
-                "index" : "data/raw/bam/local/MySample2_markdup_sort.bai" 
+                "file"  : "data/raw/bam/MySample2_markdup_sort.bam",
+                "index" : "data/raw/bam/MySample2_markdup_sort.bai" 
             }
         }
     ]

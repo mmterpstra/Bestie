@@ -8,11 +8,11 @@ WDL based hts-analysis for slurm cluster with enviroment modules. More scalable 
 
 - [x] is to get generic alignment working.
 - [x] basic variant calling (haplotypecallerGvcf).
-- [ ] somatic variant calling(MuTect2,...).
+- [x] somatic variant calling(MuTect2,...).
 - [ ] ichorCNA integration.
 - [ ] Variant annotation
 - [ ] Functional filtering of vcfs
-- [ ] Stability over > 10 samples
+- [x] Stability over > 10 samples
 - [ ] Rework dir structure to be more in line with warp/other public resources
 - [ ] End to end easybuild install
 
@@ -67,3 +67,30 @@ fastq folders (example based on `tests/integration/run_local.sh`):
 ### How to install
 
 easybuild the required modules or use future wrapper module
+
+### Used tools and databases 
+
+| Tool/data | Site | Citation | Doi  |
+| --------- | ---- | -------- | ---- | 
+| GNU Parallel | https://www.gnu.org/software/parallel/parallel_design.html#citation-notice | https://www.gnu.org/software/parallel/parallel_design.html#citation-notice |  https://doi.org/10.5281/zenodo.12789352 |
+| Name         | project website                                                                            | Article          |
+| ------------ | ------------------------------------------------------------------------------------------ | ---------------- |
+| Fastqc       | [bioinformatics.babraham.ac.uk](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) | |
+| BWA          | [github](https://github.com/lh3/bwa)                                                       | [preprint](http://arxiv.org/abs/1303.3997) |
+| Picard-tools | [sourceforge](http://picard.sourceforge.net/)                                              | [instructions below faq](http://picard.sourceforge.net/) |
+| GATK4 + MuTect2 toolkit | [project home](http://www.broadinstitute.org/gatk/)                                        | [instructions here](https://www.broadinstitute.org/gatk/about/citing-gatk) |
+| SAMtools     | [project home](http://www.htslib.org/)                                                     | [pubmed](http://www.ncbi.nlm.nih.gov/pubmed/19505943)|
+| HTSeq		| [project home](http://www-huber.embl.de/users/anders/HTSeq/doc/index.html)		    | [pubmed](http://www.ncbi.nlm.nih.gov/pubmed/25260700) |
+| Cutadapt     |  |  | 
+| bcftools     |  |  | 
+| fgbio        |  |  | 
+| freebayes    |  |  |
+| IchorCNA     |  |  | 
+| LoFreq       |  |  | 
+| MarkTrimming |  |  |
+| MultiQC      |  |  | 
+| VEP          |  |  | 
+| TrimGalore   |  |  | 
+| GATK Bundle   | [ human reference ](http://gatkforums.broadinstitute.org/discussion/1213/what-s-in-the-resource-bundle-and-how-can-i-get-it) |
+| Ensembl       | [reference/gtf dowload](http://www.ensembl.org/info/data/ftp/index.html) |
+| UCSC Tools    | [ format conversion/additional tools ](http://hgdownload.soe.ucsc.edu/admin/exe/) |

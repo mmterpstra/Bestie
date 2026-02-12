@@ -5,7 +5,7 @@
     "FastqToVariants.multiqcModule": "MultiQC/1.14-foss-2022a",
     "FastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-12.2.0",
     "FastqToVariants.picardModule": "picard/2.25.1-Java-11",
-    "FastqToVariants.gatkModule": "GATK/4.6.0.0-GCCcore-13.3.0-Java-21 R/4.4.2-gfbf-2024a",
+    "FastqToVariants.gatkModule": "R/4.2.2-foss-2022a GATK/4.3.0.0-GCCcore-11.3.0-Java-11",
     "FastqToVariants.samtoolsModule": "SAMtools/1.17-GCC-12.2.0",
     "FastqToVariants.hmmcopyutilsModule": "hmmcopy_utils/5911bf69f1-foss-2022a",
     "FastqToVariants.fgbioModule":"fgbio/2.2.1-Java-8-LTS",

@@ -117,6 +117,7 @@ task FreebayesSomatic {
             --hwe-priors-off \
             --min-alternate-fraction $minAlternateFraction \
             --min-mapping-quality 20 \
+            --min-base-quality 20 \
             --max-complex-gap 20 \
             --genotype-qualities \
             --report-genotype-likelihood-max \
@@ -152,6 +153,10 @@ task FreebayesSomatic {
           "file" : vcf,
           "index" : vcfIdx
         }
+        IndexedFile idxVcf = { 
+          "file" : vcf,
+          "index" : vcfIdx
+        }
     }
 
     runtime {
@@ -161,7 +166,7 @@ task FreebayesSomatic {
     }
 }
 
-
+#broken for my purpose: https://github.com/freebayes/freebayes/issues/166
 task FreebayesRecall {
     #freebayes -f ref.fa -@ in.vcf.gz aln.bam >var.vcf
     input {
@@ -198,11 +203,16 @@ task FreebayesRecall {
             done )
         >&2 echo " ## "$(date)" ## Loading modules" 
         ml ~{freebayesModule}
-        
+        if [[ ~{inputVariants.file} =~ \.vcf.gz$ ]]; then
+            bgzip -dc  ~{inputVariants.file} | perl -wpane '$_ = join("\t",($F[0],$F[1],$F[2],$F[3],$F[4],$F[5],$F[6],".\n")) if m/^#CHROM|^[^#]/' > ./input-alleles.vcf
+        else
+            perl -wpane '$_ = join("\t",($F[0],$F[1],$F[2],$F[3],$F[4],$F[5],$F[6],".\n")) if m/^#CHROM|^[^#]/' ~{inputVariants.file} > ./input-alleles.vcf
+        fi
+
         >&2 echo " ## "$(date)" ## Running freebayes" 
         freebayes \
             --fasta-reference ~{reference.fasta} \
-            --variant-input ~{inputVariants.file} \
+            --variant-input ./input-alleles.vcf \
             --only-use-input-alleles \
             --haplotype-length 0 \
             --min-alternate-count 1 \
@@ -213,8 +223,8 @@ task FreebayesRecall {
             --vcf /dev/stdout \
             --bam-list ./bams_inputs.list \
             --limit-coverage 20000 | \
-        perl -wpe 's/\t\.:\.(:\.)+/\t./ if m/\t\.:\.(:\.)+[\t\n]/' | \
-        tee >( perl -wne 'if($.%20 == 0){
+        perl -wpe '$| = 1;s/\t\.:\.(:\.)+/\t./ if m/\t\.:\.(:\.)+[\t\n]/' | \
+        tee >( perl -wne '$| = 1;if($.%20 == 0){
             print "## info ## ".scalar(localtime)." ##".$_ ;}' \
                 >> /dev/stderr ) | \
         bgzip -c >  \

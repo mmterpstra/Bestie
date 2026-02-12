@@ -77,6 +77,10 @@ task ReannotateVariants {
           "file" : vcf,
           "index" : vcfIdx
         }
+        IndexedFile idxVcf = { 
+          "file" : vcf,
+          "index" : vcfIdx
+        }
     }
 
     runtime {
@@ -91,6 +95,9 @@ task AdFilter {
         Array [File] inputVcfsFiles
         Array [IndexedFile] inputVcfs
         String outputBasename
+        Float freq = 0.01
+        Int count = 4
+        Float normalFreq = 0.2
         Int memoryGb = "1"
         String pipelineUtilModule = "pipeline-util"
         String vcfSuffix = ".vcf.gz"
@@ -103,14 +110,24 @@ task AdFilter {
     command <<<
         set -eo pipefail
         ml ~{pipelineUtilModule}
-        
-        perl $EBROOTPIPELINEMINUTIL/bin/AdFilter.pl \
-            -f 0.005 -c 4 \
+        if [ -e ~{inputVariantsToFilter.file} ] && \
+            [  "$(bgzip -cd ~{inputVariantsToFilter.file} | grep -vc '^#')" != 0 ]; then
+            perl $EBROOTPIPELINEMINUTIL/bin/AdFilter.pl \
+             ~{"-f " + freq} \
+             ~{"-n " + normalFreq} \
+             ~{"-c " + count} \
             "~{inputVariantsToFilter.file}" \
             "~{sep='" "' inputVcfsFiles}" | \
-        perl -wne 'print if(m/^#|\tPASS\t/);' | \
-        bgzip -c >  "~{outputBasename}~{vcfSuffix}"
-        
+             perl -wane 'print if(m/^#/ || (
+                m/\tPASS\t/ && (( defined($F[9]) && $F[9] ne "." ) || defined($F[11]) ) ));' | \
+            bgzip -c >  "~{outputBasename}~{vcfSuffix}"
+        else
+            if [[ "~{inputVariantsToFilter.file}" == *.gz ]]; then
+                cp "~{inputVariantsToFilter.file}"  "~{outputBasename}~{vcfSuffix}"
+            else
+               bgzip -c "~{inputVariantsToFilter.file}" > "~{outputBasename}~{vcfSuffix}"
+            fi
+        fi
         
         tabix -p vcf "~{outputBasename}~{vcfSuffix}"
 

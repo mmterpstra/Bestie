@@ -22,7 +22,7 @@ import "../workflows/bamsToGermlineVariants.wdl" as bamsToGermlineVariants
 workflow BamsToSomaticFreebayesVariants {
     input {
         #String picardModule = "picard/2.26.10-Java-8-LTS"
-        #String gatkModule = "GATK/4.2.4.1-Java-8-LTS"
+        String gatkModule = "GATK/4.2.4.1-Java-8-LTS"
         #String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String bcftoolsModule = "BCFtools/1.21-GCC-12.2.0"
         String freebayesModule = "freebayes/1.3.7-gfbf-2024a-R-4.4.2"
@@ -68,6 +68,11 @@ workflow BamsToSomaticFreebayesVariants {
     call common.UniqueArray as uniqueNormals {
         input:
             array = select_all(sampleNormals)
+    }
+    call common.InverseSelection as uniqueTumors {
+        input:
+            array = sampleNames,
+            selection = uniqueNormals.outArray
     }
     #this should be the best way of selecting normal samples 
     #idk how it goes for wdl validation though
@@ -129,18 +134,69 @@ workflow BamsToSomaticFreebayesVariants {
                 outputBasename = "freebayes_normals_scat_"+scatteredtargetsIdx,
                 samples=uniqueNormals.outArray
         }
-        call util.AdFilter as freebayesFilterGermline {
-            input:
-                inputVariantsToFilter = fixFreebayesSomatic.vcfOut,
-                inputVcfsFiles=[freebayesNormals.vcf],
-                inputVcfs=[freebayesNormals.vcfOut],
-                outputBasename='freebayes_normals_filt_scat_'+ scatteredtargetsIdx,
+
+        scatter (tumorSample in uniqueTumors.result){
+            call bcftools.ViewSamples as freebayesTumor {
+                input:
+                    bcftoolsModule=bcftoolsModule,
+                    inputVcf = fixFreebayesSomatic.vcf,
+                    outputBasename = "freebayes_"+tumorSample+"_scat_"+scatteredtargetsIdx,
+                    samples=[tumorSample]
+            }
+            call util.AdFilter as freebayesTumorFilterGermline {
+                input:
+                    pipelineUtilModule=pipelineUtilModule,
+                    inputVariantsToFilter = freebayesTumor.vcfOut,
+                    freq=0.01,
+                    normalFreq=0.1,
+                    count=5, 
+                    inputVcfsFiles=[freebayesNormals.vcf],
+                    inputVcfs=[freebayesNormals.vcfOut],
+                    outputBasename="freebayes_"+tumorSample+"_normalfilt_scat_"+scatteredtargetsIdx,
+            }
         }
+        call bcftools.Isec as combineFreebayesTumor {
+            input:
+                bcftoolsModule=bcftoolsModule,
+                inputVcfs=freebayesTumorFilterGermline.vcf,
+                inputIdxVcfs=freebayesTumorFilterGermline.vcfOut,
+                outputBasename='freebayes_somatic_tumor_iseq_scat'+ scatteredtargetsIdx,
+                minIntersect=1,
+        }
+        #call gatk.FreebayesRecall as recallSomatic {
+        #    input:
+        #        freebayesModule = freebayesModule,
+        #        reference = reference,
+        #       inputBams = gatherBams.link,
+        #        inputBamIndexes = gatherBais.link,
+        #        outputVcfBasename = "freebayes_joint_calls_scat"+scatteredtargetsIdx,
+        #        targetScatter = length(targetIntervals),
+        #        inputVariants = combineFreebayesTumor.idxVcf,
+        #}
+        #call bcftools.ViewSamples as fixFreebayesRecallSomatic {
+        #    input:
+        #        bcftoolsModule=bcftoolsModule,
+        #        inputVcf=recallSomatic.vcf,
+        #        samples=sampleNames,
+        #        outputBasename ='freebayes_recall_samplenames_fixed_scat'+scatteredtargetsIdx,
+        #}
+        call gatk.HaplotypeCallerRecall as annotateFreebayesMergedLists {
+            input:
+                gatkModule=gatkModule,
+                reference=reference,
+                inputBams=gatherBams.link,
+                inputBais=gatherBais.link,
+                recallIndexedVcf=combineFreebayesTumor.idxVcf,
+                outputVcfBasename="freebayes_variants_haplotypecaller_anno_scat"+scatteredtargetsIdx,
+                targetScatter =  length(targetIntervals)
+
+        }   
+        
         #filterfreebayes?
         call util.Callerise as freebayesScatCallerise {
             input:
                 pipelineUtilModule=pipelineUtilModule,
-                inputVcf = freebayesFilterGermline.vcf,
+                inputVcf = annotateFreebayesMergedLists.vcf,
                 outputBase = "freebayes_tagged_scat_"+scatteredtargetsIdx,
                 caller="freebayes_"
         }
@@ -159,7 +215,6 @@ workflow BamsToSomaticFreebayesVariants {
                 samples=sampleNames,
                 outputBasename ='freebayes_norm_fixed_scat_'+scatteredtargetsIdx,
         }
-       
     }
     call bcftools.Stats as freebayesRawStats {
         input:
@@ -187,6 +242,6 @@ workflow BamsToSomaticFreebayesVariants {
 
     meta {
         author: "MMTerpstra"
-        description: "This is the single samples bams to variants workflow."
+        description: "This is the single samples bams to somatic variants workflow using freebayes."
     }  
 }

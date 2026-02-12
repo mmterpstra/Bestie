@@ -25,9 +25,11 @@
       "dict": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.dict",
       "fai": "./data/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.fai"
     },
-    "FastqToVariants.targetIntervalList": "./data/interval_lists/hg38/S31285117_SureSelectV7_Regions_hg38.interval_list",
-    "FastqToVariants.targetScatter": 3,
+    "FastqToVariants.targetIntervalList": "./data/interval_lists/hg38/Euroclon/20260127_euroclonaliy_ndc_inferred_targets.interval_list",
+    "FastqToVariants.targetScatter": 20,
     "FastqToVariants.runCutadapt": true,
+    "FastqToVariants.runTwistUmi": true,
+    "FastqToVariants.removeDuplicates": true,
     "FastqToVariants.read1Adapters": ["NNNNNNNAGATCGGAAGAGC"],
     "FastqToVariants.read2Adapters": ["NNNNNNNAGATCGGAAGAGC"],
     "FastqToVariants.dbsnp": {
