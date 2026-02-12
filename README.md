@@ -81,16 +81,16 @@ easybuild the required modules or use future wrapper module
 | GATK4 + MuTect2 toolkit | [project home](http://www.broadinstitute.org/gatk/)                                        | [instructions here](https://www.broadinstitute.org/gatk/about/citing-gatk) |
 | SAMtools     | [project home](http://www.htslib.org/)                                                     | [pubmed](http://www.ncbi.nlm.nih.gov/pubmed/19505943)|
 | HTSeq		| [project home](http://www-huber.embl.de/users/anders/HTSeq/doc/index.html)		    | [pubmed](http://www.ncbi.nlm.nih.gov/pubmed/25260700) |
-| Cutadapt     |  |  | 
-| bcftools     |  |  | 
-| fgbio        |  |  | 
-| freebayes    |  |  |
-| IchorCNA     |  |  | 
-| LoFreq       |  |  | 
-| MarkTrimming |  |  |
-| MultiQC      |  |  | 
-| VEP          |  |  | 
-| TrimGalore   |  |  | 
+| Cutadapt     | [github](https://github.com/marcelm/cutadapt/) | [doi](http://dx.doi.org/10.14806/ej.17.1.200) | 
+| bcftools     | [github](https://samtools.github.io/bcftools/) | [pubmed](https://pubmed.ncbi.nlm.nih.gov/33590861) | 
+| fgbio        | [github](https://fulcrumgenomics.github.io/fgbio/tools/latest/) |  | 
+| freebayes    | [github](https://github.com/freebayes/freebayes) | [Garrison E, Marth G. Haplotype-based variant detection from short-read sequencing. arXiv preprint arXiv:1207.3907 [q-bio.GN] 2012](http://arxiv.org/abs/1207.3907) |
+| IchorCNA     | (github)[https://github.com/broadinstitute/ichorCNA/] | (doi)[https://doi.org/10.1038/s41467-017-00965-y] | 
+| LoFreq       | (github)[https://github.com/csb5/lofreq/] | (pubmed)[http://www.ncbi.nlm.nih.gov/pubmed/23066108] | 
+| MarkTrimming | (github)[https://github.com/mmterpstra/marktrimming] | personal tool for changing trimmings into soft trims |
+| MultiQC      | (seqera)[https://docs.seqera.io/multiqc] | (doi)[http://dx.doi.org/10.1093/bioinformatics/btw354] | 
+| VEP          | (github)[https://github.com/Ensembl/ensembl-vep] | (doi)[https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0974-4] | 
+| TrimGalore   | (github)[https://github.com/FelixKrueger/TrimGalore] |  | 
 | GATK Bundle   | [ human reference ](http://gatkforums.broadinstitute.org/discussion/1213/what-s-in-the-resource-bundle-and-how-can-i-get-it) |
 | Ensembl       | [reference/gtf dowload](http://www.ensembl.org/info/data/ftp/index.html) |
 | UCSC Tools    | [ format conversion/additional tools ](http://hgdownload.soe.ucsc.edu/admin/exe/) |
