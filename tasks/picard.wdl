@@ -61,7 +61,7 @@ task SamToFastq {
         Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         String picardModule = "picard"
         Int disk = ceil(size(inputBam, "M")*2.1)
-        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 10
     }
     command {
         set -e
@@ -136,6 +136,8 @@ task MarkDuplicates {
         String outputBamBasename
         String outputMetrics
         String picardModule = "picard"
+        Boolean removeDuplicates = false
+        String? barcodeTag 
         Int memoryGb = 16
         Int compressionLevel = 5
         Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
@@ -151,16 +153,88 @@ task MarkDuplicates {
       OUTPUT=~{outputBamBasename}.bam \
       METRICS_FILE=~{outputMetrics} \
       VALIDATION_STRINGENCY=SILENT \
+      REMOVE_DUPLICATES=~{removeDuplicates} \
       OPTICAL_DUPLICATE_PIXEL_DISTANCE=2500 \
       ASSUME_SORT_ORDER="queryname" \
       CLEAR_DT="false" \
       ADD_PG_TAG_TO_READS=false \
-      COMPRESSION_LEVEL=~{compressionLevel}
+      COMPRESSION_LEVEL=~{compressionLevel} \
+       ~{ "BARCODE_TAG=" + barcodeTag}
     }
     
     output {
         File bam = outputBamBasename + ".bam"
         File metrics = outputMetrics
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024, 4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+
+task SortedMarkDuplicates {
+        input {
+        Array[File] inputBams
+        String outputBamBasename
+        String outputMetrics
+        #Usually barcodeTag is RX or BX depending on input
+        String? barcodeTag
+        String picardModule = "picard"
+        Boolean removeDuplicates = false
+        Int memoryGb = 16
+        Int compressionLevel = 5
+        Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
+        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
+        Int disk = ceil(size(inputBams, "M")*10.2)
+    }
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command <<<
+        set -e -o pipefail
+        
+        ml ~{picardModule}
+        
+        #multiqc handles this filename better
+
+        java -Xmx1000m -jar $EBROOTPICARD/picard.jar \
+            MergeSamFiles \
+            INPUT=~{sep=' INPUT=' inputBams} \
+            OUTPUT=$TMPDIR/~{outputBamBasename}_umitagged.bam \
+            SORT_ORDER=queryname \
+            COMPRESSION_LEVEL=0
+
+        java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
+            MarkDuplicates \
+            INPUT=$TMPDIR/~{outputBamBasename}_umitagged.bam \
+            METRICS_FILE=~{outputBamBasename}_markdup_umi.metrics \
+            VALIDATION_STRINGENCY=SILENT \
+            CLEAR_DT="false" \
+            ADD_PG_TAG_TO_READS=false \
+            COMPRESSION_LEVEL=0 \
+            BARCODE_TAG="~{barcodeTag}" \
+            REMOVE_DUPLICATES=~{removeDuplicates} \
+            OUTPUT=$TMPDIR/~{outputBamBasename}_markdup_umi.bam 
+
+        rm -v $TMPDIR/~{outputBamBasename}_umitagged.bam
+
+        #technically this can do with around 4-8 xmx
+        java -Xmx~{javaXmxMemoryMb}m  -jar $EBROOTPICARD/picard.jar \
+            SortSam \
+            INPUT=$TMPDIR/~{outputBamBasename}_markdup_umi.bam \
+            COMPRESSION_LEVEL=~{compressionLevel} \
+            SORT_ORDER=coordinate \
+            CREATE_INDEX=true \
+            OUTPUT=~{outputBamBasename}.bam 
+    
+    rm $TMPDIR/~{outputBamBasename}_markdup_umi.bam 
+
+    >>>
+    
+    output {
+        File bam = outputBamBasename + ".bam"
+        File bai = outputBamBasename + ".bai"
+        File metrics = outputBamBasename + "_markdup_umi.metrics"
     }
 
     runtime {
@@ -177,11 +251,12 @@ task UmiAwareMarkDuplicatesWithMateCigar {
         String outputUMIMetrics
         String UmiTagName="RX"
         String picardModule = "picard"
+        Boolean removeDuplicates = false
         Int memoryGb = 16
         Int compressionLevel = 5
         Int javaXmxMemoryMb = floor((memoryGb-0.5)*0.95*1024)
         Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
-        Int disk = ceil(size(inputBams, "M")*1.2)
+        Int disk = ceil(size(inputBams, "M")*2.2)
     }
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
     command {
@@ -189,7 +264,7 @@ task UmiAwareMarkDuplicatesWithMateCigar {
         set -e -o pipefail
         
         ml ~{picardModule}
-
+        
         mkfifo ~{outputBamBasename}_umimarkdupmatecigar.fifo.bam
 
         java -Xmx1078m -jar $EBROOTPICARD/picard.jar MergeSamFiles \
@@ -209,7 +284,8 @@ task UmiAwareMarkDuplicatesWithMateCigar {
             OUTPUT=~{outputBamBasename}.bam \
             METRICS_FILE=~{outputMetrics} \
             UMI_TAG_NAME=~{UmiTagName} \
-            UMI_METRICS_FILE=~{outputUMIMetrics}\
+            UMI_METRICS_FILE=~{outputUMIMetrics} \
+            REMOVE_DUPLICATES=~{removeDuplicates} \
             VALIDATION_STRINGENCY=SILENT \
             CLEAR_DT="false" \
             CREATE_INDEX=true \
@@ -384,9 +460,9 @@ task GatherVcfsIndexed {
 
     }
     output {
-        File outputVcf = outputPrefix + vcfSuffix
-        File outputVcfIdx = outputPrefix + vcfSuffix+ ".tbi"
-        IndexedFile vcfOut = {
+        File vcf = outputPrefix + vcfSuffix
+        File vcfIdx = outputPrefix + vcfSuffix+ ".tbi"
+        IndexedFile idxVcf = {
           "file" : outputPrefix + vcfSuffix,
           "index" : outputPrefix + vcfSuffix + ".tbi"
         }
@@ -412,15 +488,15 @@ task SortVcfsIndexed {
         module load ~{picardModule}
         java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
         SortVcf \
-        INPUT= ~{sep=' INPUT= ' inputVcfs} \
+        INPUT=~{sep=' INPUT=' inputVcfs} \
         ~{true="CREATE_INDEX=true " false="" createIndex} \
         OUTPUT=~{outputPrefix}~{vcfSuffix}
 
     }
     output {
-        File outputVcf = outputPrefix + vcfSuffix
-        File outputVcfIdx = outputPrefix + vcfSuffix+ ".tbi"
-        IndexedFile vcfOut = {
+        File vcf = outputPrefix + vcfSuffix
+        File vcfIdx = outputPrefix + vcfSuffix+ ".tbi"
+        IndexedFile idxVcf = {
           "file" : outputPrefix + vcfSuffix,
           "index" : outputPrefix + vcfSuffix + ".tbi"
         }

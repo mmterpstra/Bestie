@@ -96,7 +96,7 @@ task UniqueArray {
     }
 
     command {
-        echo -n "~{sep='\n' array}"| sort -u > ./unique.list
+        echo -en "~{sep='\n' array}"| sort -u > ./unique.list
     }
 
     output {
@@ -106,6 +106,60 @@ task UniqueArray {
     runtime {
         memory: memory
         timeMinutes: 20
+    }
+}
+
+task InverseSelection {
+    input {
+        Array[String] array
+        Array[String] selection        
+        Int memory = 256
+    }
+
+    command {
+        #all data is 'com'pared and only lines unique to the first input file are emitted
+        comm -23 <(sort -u ~{write_lines(array)}) <(sort -u ~{write_lines(selection)}) \
+             > ./result.list
+    }
+
+    output {
+        Array[String] result = read_lines("./result.list")
+    }
+
+    runtime {
+        memory: memory
+        timeMinutes:5
+    }
+}
+
+task CreateIndexedLink {
+    # Making this of type File will create a link to the copy of the file in
+    # the execution folder, instead of the actual file.
+    # This cannot be propperly call-cached or used within a container.
+    input {
+        File inputFile
+        File indexFile
+        Boolean hardLink = false
+        Int memory = 256
+    }
+
+    command {
+        echo $PWD 
+        mkdir -p index/
+        mkdir -p file/
+        ln -t "./file/" -~{if hardLink then "" else "s" }f "$(realpath "~{inputFile}")"  
+        ln -t "./index/" -~{if hardLink then "" else "s" }f "$(realpath "~{indexFile}")"  
+    }
+
+    output {
+        File file = select_first(glob( "./file/*"))
+        File index = select_first(glob( "./index/*"))
+        IndexedFile out = {"file":file,"index":index}
+    }
+
+    runtime {
+        memory: memory
+        timeMinutes: 5
     }
 }
 
@@ -134,7 +188,6 @@ task CreateLink {
         timeMinutes: 5
     }
 }
-
 task CatSampleDescriptorJson {
     # This creates a new sampledescriptor from input sample descriptor later there should be ways to add in files/annotations
     input {
@@ -162,8 +215,9 @@ task AddAlignedReadsToSampleDescriptor {
         Int memory = 256
     }
     command <<<
+        # this either adds alignedreads or replaces them.
         cat ~{write_json(sample)} | \
-            perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}" \
+            perl -wpe 'BEGIN{our $bam = shift(@ARGV);our $bamidx = shift(@ARGV);};s!"alignedReads":null|"alignedReads"\:\{.*?\}!"alignedReads":{"file":"$bam","index":"$bamidx"}!g' "~{bam.file}" "~{bam.index}" \
             > ./sampleJsonUpdated.json  
     >>>
 

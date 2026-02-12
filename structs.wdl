@@ -63,6 +63,8 @@ struct SampleDescriptor {
 
 struct SampleConfig {
     Array[SampleDescriptor] samples
+    IndexedFile? genomicVariants
+    IndexedFile? somaticVariants
 }
 #wip maybe in future analysis workflows 
 struct TumorNormalSampleConfig {

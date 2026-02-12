@@ -32,7 +32,8 @@ workflow FastqToVariants {
         String samtoolsModule = "SAMtools/1.15.1-GCC-11.3.0"
         String fgbioModule = "fgbio/1.5.1"
         String marktrimmingModule = "marktrimming/0.0.2-GCC-12.2.0"
-        Boolean runCutadapt = false 
+        Boolean runCutadapt = false
+        Boolean removeDuplicates = false 
         Boolean runDuplexConsensus = false
         String cutadaptModule = "cutadapt/4.2-GCCcore-11.3.0"
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
@@ -77,6 +78,7 @@ workflow FastqToVariants {
                 runCutadapt = runCutadapt,
                 cutadaptModule = cutadaptModule,
                 marktrimmingModule = marktrimmingModule,
+                removeDuplicates = removeDuplicates,
                 read1Adapters = read1Adapters,
                 read2Adapters = read2Adapters,
                 runBaseQualityRecalibration = runBaseQualityRecalibration,

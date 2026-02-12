@@ -6,6 +6,6 @@
         -w $PWD \
         -r $PWD/tests/runs/bamToVariants_local \
         -f $PWD/tests/data/raw/fastq/,$PWD/tests/data/raw/bam/ \
-        -d /groups/umcg-pmb/tmp01//apps \
+        -d /groups/umcg-pmb/tmp02/apps \
         -p workflows/bamsToVariants.wdl
 )

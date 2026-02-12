@@ -31,9 +31,9 @@ task MuTect2JointCalling {
         # it bugs out on ? structs
         #select_all([germlineAfVcf.file,germlineAfVcf.index]),
         #select_all([panelOfNormalsVcf.file,panelOfNormalsVcf.index])
-
+        Int targetScatter = 1
         Int timeMinutes = ceil(10 + size(inputBams,
-            "G")*1.2 ) * 50
+            "G")*1.2 ) * 80 / targetScatter
     }
     
     #IndexedFile controlBam = select_first([inputControlBam,inputBam])
@@ -94,6 +94,7 @@ task MuTect2JointCalling {
         disk: disk
     }
 }
+
 task LearnReadOrientationModel {
     input {
         Array[File] f1r2TarGz
@@ -198,6 +199,113 @@ task FilterMutect {
           "file" : outputVcfBasename + vcfSuffix,
           "index" : outputVcfBasename + vcfSuffix + ".tbi"
         }
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+
+task MuTect2SingleSample {
+    input {
+        #Array[IndexedFile] inputIndexedBams
+        File inputBam
+        File inputBamIndex
+        File targetIntervalList
+        String outputVcfBasename
+        String vcfSuffix = ".vcf.gz"
+        Reference reference
+        #IndexedFile germlineAfVcf #aka gnomadOnlyAfVcf
+        #IndexedFile panelOfNormalsVcf
+        #f1r2TarGz should probs be true default except on pon creation (not sure if this gives an performance penalty though)
+        #maxMnpDistance usually set to 0 for genomicsDBImport on pon creation default 1 to merge adjecent mnps
+        Int? maxMnpDistance
+        #maxReadsPerAlignmentStart controls downsampling default 50 0=disable
+        Int? maxReadsPerAlignmentStart
+        #default settings
+        String gatkModule = "GATK"
+        Int memoryGb = "8"
+        Int javaMemoryGb = memoryGb - 1
+        
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(inputBam,
+            "M")*1.2 + 1000)
+        # it bugs out on ? structs
+        #select_all([germlineAfVcf.file,germlineAfVcf.index]),
+        #select_all([panelOfNormalsVcf.file,panelOfNormalsVcf.index])
+        Int targetScatter = 1
+        Int timeMinutes = ceil(10 + size(inputBam,
+            "G")*1.2 ) * 80 / targetScatter
+    }
+    
+    #IndexedFile controlBam = select_first([inputControlBam,inputBam])
+    #String normalSpec = if (artifactDetection) then " --artifact_detection_mode " else " -I:normal " + inputControlBam.file
+    #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
+    command {
+        set -e
+        set -o pipefail 
+
+        ml ~{gatkModule}
+        cp ~{inputBam} ~{inputBamIndex} $TMPDIR
+
+        gatk --java-options "-Xmx~{javaXmxMemoryMb}m -Xms~{javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            Mutect2 \
+            -R ~{reference.fasta} \
+            -I "$TMPDIR/""$(basename ~{inputBam})" \
+            ~{"--max-mnp-distance " + maxMnpDistance } \
+            ~{"--max-reads-per-alignment-start " + maxReadsPerAlignmentStart} \
+            -L ~{targetIntervalList} \
+            -O ~{outputVcfBasename}.vcf.gz
+    }
+    
+    output {
+        File vcf = outputVcfBasename + '.vcf.gz'
+        File vcfIdx = outputVcfBasename +  '.vcf.gz.tbi'
+        #File stats = outputVcfBasename + '.vcf.gz.stats'
+        #File f1r2TarGz = if createF1r2TarGz then outputVcfBasename + '.f1r2.tar.gz' else outputVcfBasename + ".f1r2.tar.gz.skipped"
+        IndexedFile idxVcf = {
+          "file" : outputVcfBasename + '.vcf.gz',
+          "index" : outputVcfBasename + '.vcf.gz.tbi'
+        }
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+# gatk CreateSomaticPanelOfNormals -R reference.fasta -V gendb://pon_db -O pon.vcf.gz
+task CreateSomaticPanelOfNormals {
+    input {
+        File genomicsDbTar
+        Reference reference
+        String outputBasename
+        String vcfSuffix = ".vcf.gz"
+        String gatkModule
+        Int memoryGb = "8"
+        Int javaMemoryGb = memoryGb - 1
+        Int? javaXmxMemoryMb = floor(memoryGb*0.9*1024)
+        Int disk = ceil(size(genomicsDbTar, "M")*1.2)
+        Int timeMinutes = 1 + ceil(size(genomicsDbTar, "G")) * 30
+    }
+    command {
+        set -e
+        set -o pipefail 
+        (cd $TMPDIR && tar -xf ~{genomicsDbTar} )
+        ml ~{gatkModule}
+        gatk --java-options "-Xmx${javaXmxMemoryMb}m -Xms${javaXmxMemoryMb}m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
+            CreateSomaticPanelOfNormals \
+            -R ~{reference.fasta} \
+            -V gendb://$TMPDIR/"$(basename ~{genomicsDbTar} .tar)" \
+            -O ~{outputBasename}~{vcfSuffix}
+    }
+    output {
+        File vcf = outputBasename + vcfSuffix
+        File index = outputBasename + vcfSuffix + ".tbi"
+        IndexedFile idxVcf = { "file" : vcf, "index" : index}
     }
 
     runtime {

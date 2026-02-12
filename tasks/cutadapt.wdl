@@ -10,7 +10,7 @@ task Cutadapt {
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Int? memoryGb = 1
-        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 50
+        Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 30
         #File? fastq_input_umi
         #String samplename
         #String identifier
@@ -71,6 +71,9 @@ task CutadaptUbam {
         String outputFastq1
         String? outputFastq2
         Int minimumLength = 15
+        Int baseQuality = 10
+        Int minAdapterOverlap = 1
+        Int threads = 1
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Int? memoryGb = 4
@@ -102,7 +105,10 @@ task CutadaptUbam {
         if [ -e ~{outputFastq2}".tmp_2.fastq.gz" ];then \
             cutadapt \
                 --minimum-length ~{minimumLength} \
-                -j 1 -e 0.1 -q 20 -O 1 \
+                -j ~{threads} \
+                -e 0.1 \
+                -q ~{baseQuality} \
+                -O ~{minAdapterOverlap} \
                 -a ~{sep=' -a ' read1Adapters} \
                 --output ~{outputFastq1} \
                 ~{outputFastq1}.tmp_1.fastq.gz \
@@ -110,7 +116,10 @@ task CutadaptUbam {
         else \
             cutadapt \
                 --minimum-length ~{minimumLength} \
-                -j 1 -e 0.1 -q 20 -O 1 \
+                -j ~{threads} \
+                -e 0.1 \
+                -q ~{baseQuality} \
+                -O ~{minAdapterOverlap} \
                 -a ~{sep=' -a ' read1Adapters} \
                 -A ~{sep=' -A ' read2Adapters} \
                 --output ~{outputFastq1} \

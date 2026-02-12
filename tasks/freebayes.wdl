@@ -13,8 +13,10 @@ task Freebayes {
         File targetIntervalList
         String outputVcfBasename
         String freebayesModule = "freebayes"
-        Int? memoryGb = "4"
-        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120
+        Int targetScatter = 1
+        Int? memoryGb = "18"
+        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 120 / targetScatter 
+        
     }
     String vcfSuffix =  ".vcf.gz"
     #https://github.com/broadinstitute/warp/blob/develop/tasks/broad/BamProcessing.wdl#L96
@@ -38,7 +40,6 @@ task Freebayes {
         grep -v '^@' ~{targetIntervalList} | perl -wlane 'print join("\t",($F[0],$F[1]-1,$F[2],$.));' > targets.bed
         
         
-
         freebayes \
             --fasta-reference ~{reference.fasta} \
             --targets ./targets.bed \
@@ -66,8 +67,9 @@ task FreebayesSomatic {
         File targetIntervalList
         String outputVcfBasename
         String freebayesModule = "freebayes"
-        Int? memoryGb = "24"
-        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 400
+        Int? memoryGb = "18"
+        Int targetScatter = 1
+        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 400 /targetScatter
         Int disk = ceil(size(inputBams, "M")*1.2)
     }
     String vcfSuffix =  ".vcf.gz"
@@ -75,10 +77,10 @@ task FreebayesSomatic {
     command <<<
         set -e 
         set -o pipefail
-
+        #idk why but freebayes randomises the vcf output file sample columns.  
         >&2 echo " ## "$(date)" ## Localising files" 
-        cat ~{write_lines(select_all(inputBams))} \
-            ~{write_lines(inputBamIndexes)} | \
+        cat ~{write_lines(inputBams)} \
+            ~{write_lines(inputBamIndexes)} | sort | \
             (while read FILE; do 
                 if [ ! -e "$TMPDIR/""$(basename "$FILE")" ]; then
                     cp "$FILE" "$TMPDIR/"
@@ -103,6 +105,9 @@ task FreebayesSomatic {
         else 
             minAlternateFraction="0.03"
         fi
+
+        #idk why but depending on amount of intervals/reference retrieved 
+        #from remote disk performance may suffer > 10x slowdowns
         
         >&2 echo " ## "$(date)" ## Running freebayes" 
         freebayes \
@@ -112,6 +117,7 @@ task FreebayesSomatic {
             --hwe-priors-off \
             --min-alternate-fraction $minAlternateFraction \
             --min-mapping-quality 20 \
+            --min-base-quality 20 \
             --max-complex-gap 20 \
             --genotype-qualities \
             --report-genotype-likelihood-max \
@@ -121,12 +127,12 @@ task FreebayesSomatic {
             --vcf /dev/stdout \
             --targets ./targets.bed \
             --bam-list ./bams_inputs.list \
-            --use-best-n-alleles 10 \
+            --use-best-n-alleles 5 \
             --limit-coverage 10000 \
-        --haplotype-length -1 | \
+            --haplotype-length -1 | \
         perl -wpe 's/\t\.:\.(:\.)+/\t./ if m/\t\.:\.(:\.)+[\t\n]/' | \
         tee >( perl -wne 'if($.%20 == 0){
-            print "##info##".scalar(localtime)."##".$_ ;}' \
+            print "## info ## ".scalar(localtime)." ## ".$_ ;}' \
                 >> /dev/stderr ) | \
         bgzip -c >  \
             ~{outputVcfBasename}~{vcfSuffix}
@@ -147,6 +153,10 @@ task FreebayesSomatic {
           "file" : vcf,
           "index" : vcfIdx
         }
+        IndexedFile idxVcf = { 
+          "file" : vcf,
+          "index" : vcfIdx
+        }
     }
 
     runtime {
@@ -156,7 +166,7 @@ task FreebayesSomatic {
     }
 }
 
-
+#broken for my purpose: https://github.com/freebayes/freebayes/issues/166
 task FreebayesRecall {
     #freebayes -f ref.fa -@ in.vcf.gz aln.bam >var.vcf
     input {
@@ -166,9 +176,11 @@ task FreebayesRecall {
         IndexedFile inputVariants
         String outputVcfBasename
         String freebayesModule = "freebayes"
-        Int? memoryGb = "24"
-        Int timeMinutes = 1 + ceil(size(inputBams, "G")) * 400
+        Int? memoryGb = "18"
+        Int targetScatter = 1
+        Int timeMinutes = 5 + ceil(size(inputBams, "G")) * 400 / targetScatter
         Int disk = ceil(size(inputBams, "M")*1.2)
+        
     }
     String vcfSuffix =  ".vcf.gz"
 
@@ -177,7 +189,7 @@ task FreebayesRecall {
         set -o pipefail
 
         >&2 echo " ## "$(date)" ## Localising files" 
-        cat ~{write_lines(select_all(inputBams))} \
+        cat ~{write_lines(inputBams)} \
             ~{write_lines(inputBamIndexes)} | \
             (while read FILE; do 
                 if [ ! -e "$TMPDIR/""$(basename "$FILE")" ]; then
@@ -191,18 +203,29 @@ task FreebayesRecall {
             done )
         >&2 echo " ## "$(date)" ## Loading modules" 
         ml ~{freebayesModule}
-        
+        if [[ ~{inputVariants.file} =~ \.vcf.gz$ ]]; then
+            bgzip -dc  ~{inputVariants.file} | perl -wpane '$_ = join("\t",($F[0],$F[1],$F[2],$F[3],$F[4],$F[5],$F[6],".\n")) if m/^#CHROM|^[^#]/' > ./input-alleles.vcf
+        else
+            perl -wpane '$_ = join("\t",($F[0],$F[1],$F[2],$F[3],$F[4],$F[5],$F[6],".\n")) if m/^#CHROM|^[^#]/' ~{inputVariants.file} > ./input-alleles.vcf
+        fi
+
         >&2 echo " ## "$(date)" ## Running freebayes" 
         freebayes \
             --fasta-reference ~{reference.fasta} \
-            --variant-input ~{inputVariants.file} \
+            --variant-input ./input-alleles.vcf \
             --only-use-input-alleles \
+            --haplotype-length 0 \
+            --min-alternate-count 1 \
+            --min-alternate-fraction 0 \
+            --no-population-priors \
+            --allele-balance-priors-off \
+            --report-monomorphic \
             --vcf /dev/stdout \
             --bam-list ./bams_inputs.list \
             --limit-coverage 20000 | \
-        perl -wpe 's/\t\.:\.(:\.)+/\t./ if m/\t\.:\.(:\.)+[\t\n]/' | \
-        tee >( perl -wne 'if($.%20 == 0){
-            print "##info##".scalar(localtime)."##".$_ ;}' \
+        perl -wpe '$| = 1;s/\t\.:\.(:\.)+/\t./ if m/\t\.:\.(:\.)+[\t\n]/' | \
+        tee >( perl -wne '$| = 1;if($.%20 == 0){
+            print "## info ## ".scalar(localtime)." ##".$_ ;}' \
                 >> /dev/stderr ) | \
         bgzip -c >  \
             ~{outputVcfBasename}~{vcfSuffix}
@@ -213,7 +236,7 @@ task FreebayesRecall {
 
         tabix -p vcf ~{outputVcfBasename}~{vcfSuffix}
         >&2 echo " ## "$(date)" ## Validating output call lengths"
-        if `grep -c -v '^#' ~{inputVariants.file} ` -ne `grep -c -v '^#' ~{outputVcfBasename}~{vcfSuffix} `; then
+        if [ "$(grep -c -v '^#' ~{inputVariants.file})" -ne "$(grep -c -v '^#' ~{outputVcfBasename}~{vcfSuffix})" ] ; then
             echo "Input and output variant call counts aren't equal. Check '~{inputVariants.file}' and '~{outputVcfBasename}~{vcfSuffix}'." &&  exit 1 
         fi
         >&2 echo " ## "$(date)" ## Done"

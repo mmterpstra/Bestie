@@ -1,10 +1,12 @@
 {
     "BamsToVariants.sampleJson": "/groups/umcg-pmb/tmp01/umcg-mterpstra/git/Bestie/tests/runs/variantstoBam/sample.json",
     "BamsToVariants.picardModule": "picard/2.26.10-Java-15",
-    "BamsToVariants.gatkModule": "GATK/4.6.0.0-GCCcore-13.3.0-Java-21 R/4.4.2-gfbf-2024a",
+    "BamsToVariants.gatkModule": "R/4.4.2-gfbf-2024a GATK/4.6.0.0-GCCcore-13.3.0-Java-21",
     "BamsToVariants.samtoolsModule": "SAMtools/1.21-GCC-13.3.0",
     "BamsToVariants.bcftoolsModule": "BCFtools/1.21-GCC-13.3.0",
     "BamsToVariants.freebayesModule": "freebayes/1.3.7-gfbf-2024a-R-4.4.2",
+    "BamsToVariants.pipelineUtilModule": "pipeline-util/0.8.22-foss-2024a",
+    "BamsToVariants.lofreqModule": "LoFreq/2.1.5-foss-2024a",
     "BamsToVariants.reference": {
       "fasta": "data/ref/ref.fasta",
       "dict": "data/ref/ref.dict",
