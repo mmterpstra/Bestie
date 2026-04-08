@@ -61,7 +61,7 @@ task bwaAlignBam {
             SORT_ORDER=~{if coordinateSort then "\"coordinate\"" else "\"unsorted\""} \
             IS_BISULFITE_SEQUENCE=false \
             ALIGNED_READS_ONLY=false \
-            CLIP_ADAPTERS=false \
+            CLIP_ADAPTERS=true \
             CLIP_OVERLAPPING_READS=true \
             MAX_RECORDS_IN_RAM=2000000 \
             ADD_MATE_CIGAR=true \
@@ -284,12 +284,13 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
         File inputUnalignedBam
         File cutadaptFastq1
         File? cutadaptFastq2
+        Boolean coordinateSort = false
         #note on memory usage
         #mainly ~8g for mergeBamAlignment memory, ~8g for bwa/bamtofastq and optionally ~8 for sorting/extra umiconsensus read data overhead.
         #This is for 150 bp reads for longer reads maybe more?
-        Int memoryGb = if coordinateSort then 16+8 else 16
+        Int memoryGb = if coordinateSort then 20+8 else 20
         #optional filling in only works partailly idk why
-        Int javaMemoryMb = if coordinateSort then ceil((16+8-8)*1024*0.95) else ceil((16-8)*1024*0.95)
+        Int javaMemoryMb = if coordinateSort then ceil((20+8-8)*1024*0.95) else ceil((20-8)*1024*0.95)
         String bwaModule = "BWA/0.7.17-GCCcore-11.3.0"
         String picardModule = "picard/2.26.10-Java-8-LTS"
         String samtoolsModule = "SAMtools/1.21-GCC-13.3.0"
@@ -301,7 +302,6 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
         Int threads = 12
         Int disk = ceil(size(inputUnalignedBam, "M")*2.1)
         Int timeMinutes = 1 + ceil(size(inputUnalignedBam, "G")) * 120 + 20
-        Boolean coordinateSort = false
     }
     #Int javaMemoryMb =  if coordinateSort then ceil((memoryGb+8-8) * 1024) else ceil(memoryGb-8 * 1024)
     #Fifobuffer / bwa have a strange interaction when piped into eachother (maybe due to module loading delays) `sleep 10 &&` seems to fix it
@@ -312,8 +312,19 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
         if [ ! -e unaligned_fifo.bam ]; then
             mkfifo unaligned_fifo.bam
         fi
-        (   module load ~{samtoolsModule} && \
+
+        (   
+            module load ~{samtoolsModule} && \
             samtools view -ubh --threads 3 ~{inputUnalignedBam}
+        ) | \
+        (
+            module load ~{marktrimmingModule} && \
+            marktrimming \
+            --input /dev/stdin \
+            --output - \
+            --ubam-out True \
+            --fastq ~{cutadaptFastq1} \
+            ~{"--fastq " + cutadaptFastq2}   
         ) > unaligned_fifo.bam &
 
 
@@ -341,8 +352,9 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
             NON_PF=true
         ) | \
         (
+            #if the data has a LOT of reads mapping to a limited size like in the test panel this can ramp up 
             ml load ~{picardModule} && \
-            java -Xms700m -Xmx700m  -jar $EBROOTPICARD/picard.jar FifoBuffer 
+            java -Xms3500m -Xmx3500m  -jar $EBROOTPICARD/picard.jar FifoBuffer 
         ) | \
         (
             sleep 10 && ml load ~{bwaModule} && \

@@ -3,6 +3,8 @@ version 1.0
 import "../structs.wdl"
 import "../tasks/gatk.wdl" as gatk
 import "../tasks/picard.wdl" as picard
+import "../tasks/fgbio.wdl" as fgbio
+import "../tasks/samtools.wdl" as samtools
 import "../tasks/common.wdl" as common
 
 workflow bamQualityControl {
@@ -11,9 +13,13 @@ workflow bamQualityControl {
         File inputBai
         String gatkModule
         String picardModule
+        String fgbioModule
+        String samtoolsModule
         String outputPrefix
+        Boolean runSamtools=false
         Reference reference
         File? targetIntervalList
+        IndexedFile? commonVariants
         Boolean byReadGroup = false
         Boolean flattenArchive = true
     }
@@ -25,13 +31,14 @@ workflow bamQualityControl {
             outputMetricsBasename = outputPrefix + "_multiplemetrics",
             byReadGroup = byReadGroup
     }
-    call gatk.CollectWgsMetrics as wgsMetrics {
-        input:
-            gatkModule = gatkModule,
-            reference = reference,
-            inputBam = inputBam,
-            outputMetricsBasename = outputPrefix,
-    }
+    #this one is sloooow:
+    #call gatk.CollectWgsMetrics as wgsMetrics {
+    #    input:
+    #        gatkModule = gatkModule,
+    #        reference = reference,
+    #        inputBam = inputBam,
+    #        outputMetricsBasename = outputPrefix,
+    #}
     if(defined(targetIntervalList)) {
         call gatk.CollectHsMetrics as collectHsMetrics {
             input:
@@ -50,8 +57,35 @@ workflow bamQualityControl {
                 targetIntervalList = select_first([targetIntervalList]),
                 inputBam = inputBam,
                 outputMetricsBasename = outputPrefix,
-        }        
+        }
+        call fgbio.ErrorRateByReadPosition as errorByReadPos {
+            input:
+                fgbioModule = fgbioModule,
+                reference = reference,
+                inputBam = inputBam,
+                outputBasename = outputPrefix,
+                intervals = select_first([targetIntervalList]),
+                variants = select_first([commonVariants])
+        }     
     }
+    if(runSamtools) {
+        call samtools.Stats as samStats {
+            input:
+                samtoolsModule = samtoolsModule,
+                inputBam = inputBam,
+                inputBai = inputBai,
+                reference = reference,
+                outputBasename = outputPrefix,
+            }
+        call samtools.XYIdxStats as samXYIdxStats {
+            input:
+                samtoolsModule = samtoolsModule,
+                inputBam = inputBam,
+                inputBai = inputBai,
+                outputBasename = outputPrefix,
+        }
+    }
+
     call common.ZipFiles as CreateQcZip {
         input:
             fileList = 
@@ -63,12 +97,16 @@ workflow bamQualityControl {
                     collectMultipleMetrics.qualityByCycleMetrics,
                     collectMultipleMetrics.qualityByCyclePdf,
                     collectMultipleMetrics.qualityDistributionMetrics,
-                    collectMultipleMetrics.readLengthPdf,
-                    wgsMetrics.wgsMetrics
+                    collectMultipleMetrics.readLengthPdf
+                    #,wgsMetrics.wgsMetrics
                 ],
             optionalFileList = [
-                    select_first([collectHsMetrics.hsMetrics,outputPrefix + ".hs_metrics_skipped"]),
-                    select_first([depthOfCoverage.dcovMetrics,outputPrefix + ".dcov_metrics_skipped"])
+                    #dummy file filling
+                    select_first([collectHsMetrics.hsMetrics,collectMultipleMetrics.alignmentMetrics]),
+                    select_first([depthOfCoverage.dcovMetrics,collectMultipleMetrics.alignmentMetrics]),
+                    select_first([errorByReadPos.metrics,collectMultipleMetrics.alignmentMetrics]),
+                    select_first([samStats.stats,collectMultipleMetrics.alignmentMetrics]),
+                    select_first([samXYIdxStats.idxstats,collectMultipleMetrics.alignmentMetrics])
                 ],
             outputPrefix = outputPrefix,
             flattenArchive = flattenArchive

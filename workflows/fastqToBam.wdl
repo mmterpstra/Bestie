@@ -13,7 +13,6 @@ import "../tasks/alignment.wdl" as align
 import "../tasks/gatk.wdl" as gatk
 import "../tasks/ichorcna.wdl" as ichorcna
 import "../tasks/marktrimming.wdl" as marktrim
-
 import "../workflows/qc.wdl" as qc
 
 workflow FastqToBam {
@@ -99,7 +98,7 @@ workflow FastqToBam {
                 readStructureFastqUmi = rg.readStructureFastqUmi,
                 extractUmisFromReadNames = rg.extractUmisFromReadNames,
         }
-            #
+        #
         scatter (scatteredUbamsIdx in range(length(fastqToUbams.ubams))) {
             #dump sorted bam reads for trimming for alternate cutadapt workflow
             #outputs ubamToSortedFastq.fastq1gz and select_first(ubamToSortedFastq.fastq2gz)
@@ -207,6 +206,40 @@ workflow FastqToBam {
                 outputPrefix = sample.name + "_R2",
         }
     }
+    #remove pcr duplicates // optical
+    #naive markdups
+    call picard.MarkDuplicates as markDups {
+        input:
+            picardModule = picardModule,
+            removeDuplicates = removeDuplicates,
+            inputBams = flatten(bwaAlignment.bam),
+            outputBamBasename = sample.name + '_markdup',
+            outputMetrics = sample.name + '.markdup_metrics'
+    }
+    #sort bam by coordinate order
+    call picard.SortSam as sortBam {
+        input: 
+            picardModule = picardModule,
+            inputBam = markDups.bam,
+            outputBamBasename = sample.name + '_markdup_sort'
+            
+    }
+
+    #call qc.bamQualityControl as bamQualityControl {
+    #    input:
+    #        gatkModule = gatkModule,
+    #        picardModule = picardModule,
+    #        fgbioModule = fgbioModule,
+    #        samtoolsModule = samtoolsModule,
+    #        reference = reference,
+    #        inputBam = sortBam.bam,
+    #        inputBai = select_first([sortBam.bai]),
+    #        outputPrefix =  sample.name + '_markdup_sort_qc',
+    #        targetIntervalList = targetIntervalList,
+    #        commonVariants = select_first(knownSites),
+    #        byReadGroup = true
+    #}
+
     #runs basicUmiAwareMarkDups
     if (runTwistUmiSample) {
         #call picard.UmiAwareMarkDuplicatesWithMateCigar as markDupsUmi {
@@ -231,6 +264,7 @@ workflow FastqToBam {
         call picard.SortedMarkDuplicates as sortedMarkDupsDefaultUmi {
             input:
                 barcodeTag = "RX",
+                duplexUMI = true,
                 picardModule = picardModule,
                 removeDuplicates = removeDuplicates,
                 inputBams = flatten(bwaAlignment.bam),
@@ -242,17 +276,20 @@ workflow FastqToBam {
             input:
                 gatkModule = gatkModule,
                 picardModule = picardModule,
+                fgbioModule = fgbioModule,
+                samtoolsModule = samtoolsModule,
                 reference = reference,
                 inputBam = sortedMarkDupsDefaultUmi.bam,
                 inputBai = select_first([sortedMarkDupsDefaultUmi.bai]),
                 outputPrefix =  sample.name + '_markdup_umi_sort_qc',
                 targetIntervalList = targetIntervalList,
+                commonVariants = select_first(knownSites),
                 byReadGroup = true
         }
     }
 
-    File DuplicateMarkedBam = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bam,sortBam.bam]) else sortBam.bam
-    File DuplicateMarkedBai = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bai,sortBam.bai]) else select_first([sortBam.bai])
+    File duplicateMarkedBam = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bam,sortBam.bam]) else sortBam.bam
+    File duplicateMarkedBai = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bai,sortBam.bai]) else select_first([sortBam.bai])
     #runs Duplexconsensus Pipeline
 
     if(runTwistUmiSample && runDuplexConsensus){
@@ -272,11 +309,14 @@ workflow FastqToBam {
             input:
             gatkModule = gatkModule,
             picardModule = picardModule,
+            fgbioModule = fgbioModule,
+            samtoolsModule = samtoolsModule,
             reference = reference,
             inputBam = sortMergedSampleBam.bam,
             inputBai = select_first([sortMergedSampleBam.bai]),
             outputPrefix =  sample.name + '_notduplicatemarked_qc',
             targetIntervalList = targetIntervalList,
+            commonVariants = select_first(knownSites),
             byReadGroup = false
         }
         
@@ -286,82 +326,91 @@ workflow FastqToBam {
                 inputBam = mergeBySample.bam,
                 outputBamBasename = sample.name + '_before_umi',
         }
-
+        #call fgbio.CallConsensusReads as callConsensusReads {
+        #    input:
+        #        fgbioModule = fgbioModule,
+        #        inputBam = groupReadsByUmi.bam,
+        #        outputBamBasename = sample.name + '_consensus_called',
+        #}
         call fgbio.CallDuplexConsensusReads as callDuplexConsensusReads {
             input:
                 fgbioModule = fgbioModule,
                 inputBam = groupReadsByUmi.bam,
                 outputBamBasename = sample.name + '_duplex_called',
         }
+        
         call picard.SortSam as sortDuplexBam {
         input: 
             picardModule = picardModule,
             inputBam = callDuplexConsensusReads.bam,
-            outputBamBasename = sample.name + '_duplex_called_queryname_sort',
+            outputBamBasename = sample.name + '_duplex_sorted',
             sortOrder = "queryname"
         }
+        
         #optional filterconsensusreads
-        call align.bwaAlignBam as bwaDuplexConsensusAlignment {
+
+        call picard.SamToFastq as ubamToSortedDuplexFastq {
+            input:
+                inputBam = sortDuplexBam.bam,
+                picardModule = picardModule,
+                outputFastqDirBase = sample.name + '_duplex_sorted_',
+        }
+        
+        
+        if(runCutadaptSample) {
+            call cutadapt.Cutadapt as cutadaptDuplexPe {
+                input:
+                    cutadaptModule = cutadaptModule,
+                    minimumLength = 0,
+                    inputFastq1 = ubamToSortedDuplexFastq.fastq1gz,
+                    outputFastq1 = sample.name + "_duplex_cutadapt_R1.fastq.gz",
+                    inputFastq2 = select_first([ubamToSortedDuplexFastq.fastq2gz]),
+                    outputFastq2 = sample.name + "_duplex_cutadapt_R2.fastq.gz",
+                    read1Adapters = read1Adapters,
+                    read2Adapters = read2Adapters
+            }                
+        }
+        call align.bwaMarktrimmingAlignBamSamtoolsCompression as bwaDuplexConsensusAlignment {
             input:
                 inputUnalignedBam = sortDuplexBam.bam,
                 referenceBwaIndex = referenceBwaIndex,
+                cutadaptFastq1 = select_first([cutadaptDuplexPe.fastq1,ubamToSortedDuplexFastq.fastq1gz]),
+                cutadaptFastq2 = select_first([cutadaptDuplexPe.fastq2,ubamToSortedDuplexFastq.fastq2gz]),
                 reference = reference,
                 bwaModule = bwaModule,
                 picardModule = picardModule,
-                outputBamBasename = sample.name + "_duplexaligned",
+                marktrimmingModule = marktrimmingModule,
+                outputBamBasename = sample.name + "_duplex_aligned",
                 coordinateSort = coordinateSort,
-                timeMinutes = 20 + ceil(size(callDuplexConsensusReads.bam, "G")) * 120 * 3, #Due to sorting/extra tags (increase in filesize) in the speed decreases a lot.
+                timeMinutes = 20 + ceil(size(sortDuplexBam.bam, "G")) * 120 * 3, #Due to sorting/extra tags (increase in filesize) in the speed decreases a lot.
                 umiTags = runTwistUmi
         }
-        call qc.bamQualityControl as bamQualityControlConsensusReads {
-            input:
-            gatkModule = gatkModule,
-            picardModule = picardModule,
-            reference = reference,
-            inputBam = select_first([bwaDuplexConsensusAlignment.bam]),
-            inputBai = select_first([bwaDuplexConsensusAlignment.bai]),
-            outputPrefix =  sample.name + '_consensusreads_qc',
-            targetIntervalList = targetIntervalList,
-            byReadGroup = false
-        }
     }
     
-    #remove pcr duplicates // optical
     
-    call picard.MarkDuplicates as markDups {
-        input:
-            picardModule = picardModule,
-            removeDuplicates = removeDuplicates,
-            inputBams = flatten(bwaAlignment.bam),
-            outputBamBasename = sample.name + '_markdup',
-            outputMetrics = sample.name + '.markdup_metrics'
-    }
-    #sort bam by coordinate order
-    call picard.SortSam as sortBam {
-        input: 
-            picardModule = picardModule,
-            inputBam = markDups.bam,
-            outputBamBasename = sample.name + '_markdup_sort'
-            
-    }
-    call qc.bamQualityControl as bamQualityControl {
-        input:
-            gatkModule = gatkModule,
-            picardModule = picardModule,
-            reference = reference,
-            inputBam = sortBam.bam,
-            inputBai = select_first([sortBam.bai]),
-            outputPrefix =  sample.name + '_markdup_sort_qc',
-            targetIntervalList = targetIntervalList,
-            byReadGroup = true
-    }
     #optional indelrealignment
     #wip or skip
     
     #optional basequality score recalibration
 
-    File prebqsrBam = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bam,DuplicateMarkedBam]) else DuplicateMarkedBam
-    File prebqsrBai = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bai,DuplicateMarkedBai]) else DuplicateMarkedBai
+    File prebqsrBam = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bam,duplicateMarkedBam]) else duplicateMarkedBam
+    File prebqsrBai = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bai,duplicateMarkedBai]) else duplicateMarkedBai
+
+    call qc.bamQualityControl as bamQualityPreBqsr {
+        input:
+        gatkModule = gatkModule,
+        picardModule = picardModule,
+        fgbioModule = fgbioModule,
+        samtoolsModule = samtoolsModule,
+        reference = reference,
+        inputBam = select_first([prebqsrBam]),
+        inputBai = select_first([prebqsrBai]),
+        outputPrefix =  sample.name + '_duplex_reads_qc',
+        targetIntervalList = targetIntervalList,
+        commonVariants = select_first(knownSites),
+        byReadGroup = false,
+        runSamtools = true
+    }
 
     if(runBaseQualityRecalibration){
         call gatk.BaseQualityScoreRecalibration as bqsr {
@@ -386,11 +435,14 @@ workflow FastqToBam {
             input:
                 gatkModule = gatkModule,
                 picardModule = picardModule,
+                fgbioModule = fgbioModule,
+                samtoolsModule = samtoolsModule,
                 reference = reference,
                 inputBam = applyBQSR.bam,
                 inputBai = applyBQSR.bai,
                 outputPrefix =  sample.name + '_recalibrated_qc',
                 targetIntervalList = targetIntervalList,
+                commonVariants = select_first(knownSites),
                 byReadGroup = true
         }
 
@@ -412,9 +464,8 @@ workflow FastqToBam {
           "index" : bai 
         }
         
-        File qcZip = bamQualityControl.qcZip
+        File qcZip = bamQualityPreBqsr.qcZip
         File? preUmiQcZip = bamQualityControlUnMarked.qcZip
-        File? duplexconsensusQcZip = bamQualityControlConsensusReads.qcZip
         File? umiQcZip = bamUmiQualityControl.qcZip
         File? bqsrQcZip = recalibratedBamQualityControl.qcZip
         File? umiFamilySizeHistogram = groupReadsByUmi.familySizeHistogram

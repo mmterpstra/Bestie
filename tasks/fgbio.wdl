@@ -1,5 +1,5 @@
 version 1.0
-
+import "../structs.wdl"
 task FastqToUnmappedBam {
     input {
         File inputFastq1
@@ -147,6 +147,39 @@ task GroupReadsByUmi {
         disk: disk
     }
 }
+task CallConsensusReads {
+    input {
+        File inputBam
+        String outputBamBasename
+        String fgbioModule = "fgbio"
+        Int memoryGb = "5"
+        Int javaMemoryMb = ceil(memoryGb * 1024 * 0.85)
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
+        Int disk = ceil(size(inputBam, "M")*2.1)
+    }
+    command {
+        set -e
+        module load ~{fgbioModule} && \
+        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --compression 1 --async-io \
+            CallMolecularConsensusReads \
+            --min-reads 3 \
+            --min-input-base-quality 20 \
+            --threads 2 \
+            --input=~{inputBam} \
+            --output="~{outputBamBasename}.bam" \
+            #--error-rate-pre-umi=45 \
+            #--error-rate-post-umi=30 \
+    output {
+        File bam = outputBamBasename + ".bam"
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
 
 task CallDuplexConsensusReads {
     input {
@@ -169,7 +202,7 @@ task CallDuplexConsensusReads {
             --error-rate-pre-umi=45 \
             --error-rate-post-umi=30 \
             --min-input-base-quality=30 \
-            --min-reads 3 2 2
+            --min-reads 3 1 1
     }
 
     output {
@@ -216,6 +249,56 @@ task FilterDuplexConsensusReads {
 
     output {
         File bam = outputBamBasename + ".bam"
+    }
+
+    runtime {
+        memory: select_first([memoryGb * 1024,4*1024])
+        timeMinutes: timeMinutes
+        disk: disk
+    }
+}
+#ErrorRateByReadPosition
+task ErrorRateByReadPosition {
+    input {
+        File inputBam
+        Reference reference
+        File intervals
+        IndexedFile variants
+        String outputBasename
+        String fgbioModule = "fgbio"
+        Int memoryGb = "5"
+        Int javaMemoryMb = ceil(memoryGb * 1024 * 0.85)
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 40
+        Int disk = ceil(size(inputBam, "M")*2.1)
+    }
+    command {
+        set -e
+        module load ~{fgbioModule} && \
+        java -Xmx~{javaMemoryMb}m -jar $EBROOTFGBIO/lib/fgbio-$(echo ~{fgbioModule} | perl -wpe 's/fgbio\/([\d.]+).*/$1/g').jar \
+            --async-io \
+            ErrorRateByReadPosition \
+            --ref=~{reference.fasta} \
+            --min-mapping-quality=20 \
+            --min-base-quality=20 \
+            ~{ if defined(variants) then " --variants " + variants.file else ""} \
+            ~{ if defined(intervals) then " --intervals " + intervals else ""} \
+            --input=~{inputBam} \
+            --output="~{outputBasename}" 
+            #\
+            #    --error-rate-pre-umi=45 \
+            #    --error-rate-post-umi=30 \
+            #    --min-input-base-quality=30 \
+            #    --min-reads 2 1 1
+            #--reverse-per-base-tags=true \
+            #--min-reads=3 \
+            #-max-read-error-rate 0.05 \
+            #-min-base-quality 40 \
+            #-max-base-error-rate 0.1 \
+            #-max-no-call-fraction 0.1 \
+    }
+
+    output {
+        File metrics = outputBasename + ".error_rate_by_read_position.txt"
     }
 
     runtime {

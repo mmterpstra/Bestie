@@ -159,7 +159,7 @@ workflow FastqToVariants {
     )
     Array[File?] optionalPerSampleFiles = flatten([select_all(fqToBam.umiQcZip),select_all(fqToBam.preUmiQcZip),select_all(fqToBam.bqsrQcZip),select_all(fqToBam.umiFamilySizeHistogram)])
     Array[File?] optionalPerReadgroupFiles = select_all(flatten(fqToBam.cutadaptLogs))
-    #add fqToBam.fastqcZip or not???
+    # add fqToBam.fastqcZip or not???
     Array[File?] optionalFiles = select_all(flatten([optionalPerSampleFiles,optionalPerReadgroupFiles]))
     call multiqc.MultiQC as multiqc {
             input:

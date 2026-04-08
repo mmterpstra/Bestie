@@ -27,7 +27,7 @@
   },
   "FastqToVariants.targetIntervalList": "./data/interval_lists/hg38/S31285117_SureSelectV7_Regions_hg38.interval_list",
   "FastqToVariants.targetScatter": 20,
-  "FastqToVariants.runCutadapt": false,
+  "FastqToVariants.runCutadapt": true,
   "FastqToVariants.read1Adapters": ["AGATCGGAAGAGC"],
   "FastqToVariants.read2Adapters": ["AGATCGGAAGAGC"],
   "FastqToVariants.dbsnp": {

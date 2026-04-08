@@ -137,6 +137,7 @@ task MarkDuplicates {
         String outputMetrics
         String picardModule = "picard"
         Boolean removeDuplicates = false
+        Boolean duplexUMI = false
         String? barcodeTag 
         Int memoryGb = 16
         Int compressionLevel = 5
@@ -159,7 +160,8 @@ task MarkDuplicates {
       CLEAR_DT="false" \
       ADD_PG_TAG_TO_READS=false \
       COMPRESSION_LEVEL=~{compressionLevel} \
-       ~{ "BARCODE_TAG=" + barcodeTag}
+       ~{ "BARCODE_TAG=" + barcodeTag} \
+       DUPLEX_UMI=~{duplexUMI}
     }
     
     output {
@@ -181,6 +183,7 @@ task SortedMarkDuplicates {
         String outputMetrics
         #Usually barcodeTag is RX or BX depending on input
         String? barcodeTag
+        Boolean duplexUMI = false
         String picardModule = "picard"
         Boolean removeDuplicates = false
         Int memoryGb = 16
@@ -213,6 +216,7 @@ task SortedMarkDuplicates {
             ADD_PG_TAG_TO_READS=false \
             COMPRESSION_LEVEL=0 \
             BARCODE_TAG="~{barcodeTag}" \
+            DUPLEX_UMI=~{duplexUMI} \
             REMOVE_DUPLICATES=~{removeDuplicates} \
             OUTPUT=$TMPDIR/~{outputBamBasename}_markdup_umi.bam 
 

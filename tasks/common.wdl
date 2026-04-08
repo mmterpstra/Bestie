@@ -270,28 +270,37 @@ task ZipFiles {
     
     #WIP: does not localise optional files...
 
-    command {
+    command <<<
         set -e -o pipefail
-        cat ~{write_lines(fileList)} ~{write_lines(select_all(optionalFileList))} | 
-        ( while read FILE; do 
+        cat ~{write_lines(fileList)} ~{write_lines(select_all(optionalFileList))} | \
+        (declare -A SEEN; while read FILE; do 
             if [ -e $FILE ]; then
-                echo "$FILE"
+                BASENAME="$(basename $FILE)"
+                if [[ -z "${SEEN[$BASENAME]}" ]]; then
+                    SEEN[$BASENAME]=1
+                    echo "$FILE"
+                fi
             fi
         done ) > ./filelist.txt
 
         pwd
         #try find cromwell execution dir and execute from there
+
         EXECUTION_DIR=$(head -n 1 ./filelist.txt | \
         python3 -c "import sys;[sys.stdout.write( line[:(line.find('/cromwell-executions/')+21)]+'\n') for line in sys.stdin]" )
         OUTDIR=$PWD
 
-        #zip command
+        #zip command also uses 'sort -u' due to flattenarchive being present 
+        # the file specification done in a roundabout way due to commanline length limitations
+        # and path perservation enabling files to extract to lower level folders instead of higher lever ones.
+
         cat ./filelist.txt | \
             python3 -c "import sys;[sys.stdout.write( line[(line.find('/cromwell-executions/')+21):]+'\n') for line in sys.stdin]" | \
+            sort -u | \
             (cd $EXECUTION_DIR && \
                 zip ~{if flattenArchive then "-j " else ""}  $OUTDIR/~{outputPrefix}.zip -@
             )
-    }
+    >>>
 
     output {
         File zip = outputPrefix + ".zip"
