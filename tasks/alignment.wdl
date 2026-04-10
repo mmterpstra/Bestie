@@ -410,6 +410,9 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
         #    samtools view -bh --fast --threads 3 /dev/stdin > ~{outputBamBasename}.bam
         #)
         wait
+
+        #some transfers work better with this
+        rm -v unaligned_fifo.bam
     >>>
 
     output {

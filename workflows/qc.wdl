@@ -77,7 +77,7 @@ workflow bamQualityControl {
                 reference = reference,
                 outputBasename = outputPrefix,
             }
-        call samtools.XYIdxStats as samXYIdxStats {
+        call samtools.IdxStats as samIdxStats {
             input:
                 samtoolsModule = samtoolsModule,
                 inputBam = inputBam,
@@ -101,12 +101,12 @@ workflow bamQualityControl {
                     #,wgsMetrics.wgsMetrics
                 ],
             optionalFileList = [
-                    #dummy file filling
+                    #dummy file filling might not work
                     select_first([collectHsMetrics.hsMetrics,collectMultipleMetrics.alignmentMetrics]),
                     select_first([depthOfCoverage.dcovMetrics,collectMultipleMetrics.alignmentMetrics]),
                     select_first([errorByReadPos.metrics,collectMultipleMetrics.alignmentMetrics]),
                     select_first([samStats.stats,collectMultipleMetrics.alignmentMetrics]),
-                    select_first([samXYIdxStats.idxstats,collectMultipleMetrics.alignmentMetrics])
+                    select_first([samIdxStats.idxstats,collectMultipleMetrics.alignmentMetrics])
                 ],
             outputPrefix = outputPrefix,
             flattenArchive = flattenArchive

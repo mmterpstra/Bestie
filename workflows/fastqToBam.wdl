@@ -405,7 +405,7 @@ workflow FastqToBam {
         reference = reference,
         inputBam = select_first([prebqsrBam]),
         inputBai = select_first([prebqsrBai]),
-        outputPrefix =  sample.name + '_duplex_reads_qc',
+        outputPrefix =  sample.name + '_qc',
         targetIntervalList = targetIntervalList,
         commonVariants = select_first(knownSites),
         byReadGroup = false,

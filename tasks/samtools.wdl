@@ -55,6 +55,29 @@ task Stats {
 
     }
 }
+task IdxStats {
+    input {
+        File inputBam
+        File inputBai
+        String outputBasename
+        Int memoryGb = "1"
+        String samtoolsModule = "SAMtools"
+        Int timeMinutes = 1 + ceil(size(inputBam, "G")) * 120
+        #Int disk = 1 + ceil(size(inputBam, "G")) * 1024
+    }
+    command <<<
+        set -e -o pipefail
+        module load ~{samtoolsModule} && \
+        (
+            samtools idxstats  "~{inputBam}"  > "~{outputBasename}.samidxstats"
+        )
+    >>>
+
+    output {
+        File idxstats = outputBasename + ".samidxstats"
+
+    }
+}
 task XYIdxStats {
     input {
         File inputBam
