@@ -54,7 +54,17 @@ workflow FastqToVariants {
 
     call common.CheckModules as checkModules {
         input:
-            modules = [fastqcModule,trimgaloreModule,multiqcModule,bwaModule,picardModule,gatkModule,hmmcopyutilsModule,samtoolsModule,fgbioModule]
+            modules = [
+                fastqcModule,
+                trimgaloreModule,
+                multiqcModule,
+                bwaModule,
+                picardModule,
+                gatkModule,
+                hmmcopyutilsModule,
+                samtoolsModule,
+                fgbioModule,
+                marktrimmingModule]
     }
     call picard.SplitAndPadIntervals as splitIntervals {
     input:

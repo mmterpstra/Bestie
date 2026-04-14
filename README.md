@@ -2,13 +2,80 @@
 
 WDL based hts-analysis for slurm cluster with enviroment modules. More scalable then ever before setting discrete cpu, memory, runtimes and disk space based on input files for maximum* sheduling efficiency.
 
-> *: Always WIP due to lfs stability and edge cases.
+> *: Always WIP due to lfs served over nfs stability and edge cases.
 
 ### FastqToBam workflow
 
-Shown in the example below
+Shown in the example below. In short an pipeline for analysising reads from illumina sequecers using twist udi adapters in a cfDNA setting. Using parallelisation if possible. One of the features is the adapter trimming and alignment step substep is parallelised in batches smaller then 50m reads. 
 
-[![](https://mermaid.ink/img/pako:eNp9VeFO4zgQfhXL0ko9XYto2VDIjzs5KS3sboE2ZVlw-WEa00ab2FnHObZX-HsPcI94T3JjO6FpOV2RKsbfNzOfZ8bTDV7ImGMfP6XyebFiSqPZYC7cH4IPoRciLzUakmg2KdCvaMw1i5lmD6jT-Q0FNFScaY6KdZYm4nvx4NwCi4Z0joes0JMQtRR7RkCNi1_m-KGZwVEHhmpyoH_--huVARmj1tPyMZGQ8jpZMBXv-w2s3xmNFkxrrpD8A76sYwH3iIsd8pklD2nEspk0kn5UQocWGNGZSrIRS6XiO8A5yApLc-Nco5bMdSIFS_eljCz3gkY85QuNNMTKeOxqVoU7d5Sml8vwiQa3BJE0WYqMC20qzNR3IydLxLLyvnBUZ3yyxmcamWsiuPDuVT9b-Asdc7XkFq5iDso8hUpqXjfpi2Ve0khC24G4E-bDB3QzvkCPionFqhn5amPOuWCPKY9_f3XQlYFe7njxgq4p4B32zBT_77TXNszE0NAkbB6-XMoXNKWhFDoRJd_XYyLxnzuSGnmjTYXvSYu2lBl0s1GWlpAo5nGZu34a8sxqu6EjJct8asY1WIPOCr2x6FcasjSt1YDYgouiLJClV8yvlnkL-WxxWz9KrtaCZXyb6tZSvr0fyW8WuPufyduy7oFl5gde1tsEtWKrbEu9c9RmOWyh98rrKpMzvSrc2b31I4ReK94JJtG0GhKDTSvMWZeVhZodNmAjPCyBR_4EDwyZUNV2IY4ZwDXMksirRLX2PYXvHcPNtBT2vG43Cbf9JgMasIJP-QKqA2OjparkE7c9yBkleZ6uTYAacauCDGtJstA7mt5SmBqSER0m0Jd3z6cOM9o5dIuCnNOrUsNWLXzjB88TEtnNqpJFPUEkqLiVOdwxJ2_WXOA2Xqokxr5WJW_jjKuMGRNvbAmxXvGMz7EP_8bwHud4Ll7BJ2fiXsqsdoOBX66w_8TSAqwyhx3PBwlbKpa9nSouYq5CWQqN_aNe37NRsL_BP7Hf7R0feIeH3vFHr-91T72jbhuvsd85PewdnJ70Pva6J33vtY3_tEm7ByfdvnfSP4bzbs87PT5qYx4n0KGx-0Gyv0uv_wLQDvE0?type=png)](https://mermaid.ai/live/edit#pako:eNp9VeFO4zgQfhXL0ko9XYto2VDIjzs5KS3sboE2ZVlw-WEa00ab2FnHObZX-HsPcI94T3JjO6FpOV2RKsbfNzOfZ8bTDV7ImGMfP6XyebFiSqPZYC7cH4IPoRciLzUakmg2KdCvaMw1i5lmD6jT-Q0FNFScaY6KdZYm4nvx4NwCi4Z0joes0JMQtRR7RkCNi1_m-KGZwVEHhmpyoH_--huVARmj1tPyMZGQ8jpZMBXv-w2s3xmNFkxrrpD8A76sYwH3iIsd8pklD2nEspk0kn5UQocWGNGZSrIRS6XiO8A5yApLc-Nco5bMdSIFS_eljCz3gkY85QuNNMTKeOxqVoU7d5Sml8vwiQa3BJE0WYqMC20qzNR3IydLxLLyvnBUZ3yyxmcamWsiuPDuVT9b-Asdc7XkFq5iDso8hUpqXjfpi2Ve0khC24G4E-bDB3QzvkCPionFqhn5amPOuWCPKY9_f3XQlYFe7njxgq4p4B32zBT_77TXNszE0NAkbB6-XMoXNKWhFDoRJd_XYyLxnzuSGnmjTYXvSYu2lBl0s1GWlpAo5nGZu34a8sxqu6EjJct8asY1WIPOCr2x6FcasjSt1YDYgouiLJClV8yvlnkL-WxxWz9KrtaCZXyb6tZSvr0fyW8WuPufyduy7oFl5gde1tsEtWKrbEu9c9RmOWyh98rrKpMzvSrc2b31I4ReK94JJtG0GhKDTSvMWZeVhZodNmAjPCyBR_4EDwyZUNV2IY4ZwDXMksirRLX2PYXvHcPNtBT2vG43Cbf9JgMasIJP-QKqA2OjparkE7c9yBkleZ6uTYAacauCDGtJstA7mt5SmBqSER0m0Jd3z6cOM9o5dIuCnNOrUsNWLXzjB88TEtnNqpJFPUEkqLiVOdwxJ2_WXOA2Xqokxr5WJW_jjKuMGRNvbAmxXvGMz7EP_8bwHud4Ll7BJ2fiXsqsdoOBX66w_8TSAqwyhx3PBwlbKpa9nSouYq5CWQqN_aNe37NRsL_BP7Hf7R0feIeH3vFHr-91T72jbhuvsd85PewdnJ70Pva6J33vtY3_tEm7ByfdvnfSP4bzbs87PT5qYx4n0KGx-0Gyv0uv_wLQDvE0)
+<!---
+    The workflow should look like:
+        flowchart TD
+
+        A[Input FASTQs + Metadata] --\> B[Create symlinks]
+        B --\> C["FastQC (raw reads)"]
+
+        B --\> D["FASTQ → uBAM (fgbio + Picard)"]
+
+        D --\> E[Scatter over uBAM shards]
+        E --\> F[SamToFastq]
+        F --\> G[TrimGalore]
+        F --\> H["Cutadapt (optional)"]
+
+
+        G --\> I[Select trimmed FASTQ]
+        H --\> I
+
+        F --\> J[BWA Alignment + MarkTrimming]
+        I --\> J
+        J --\> K[Shard BAMs]
+
+        K --\> L[Merge BAMs + MarkDuplicates]
+        L --\> N[Sort BAM]
+
+        %% UMI branch
+        K --\> O{UMI enabled?}
+        O --\>|Yes| P[UMI-aware MarkDuplicates]
+        P --\> Q[UMI QC]
+
+        %% Duplex branch
+        O --\>|Yes| S{Duplex enabled?}
+        S --\>|Yes| T["Merge BAMs (no dedup)"]
+        T --\> U[GroupReadsByUMI]
+        U --\> V[Call Duplex Consensus Reads]
+        V --\> W["Sort (queryname)"]
+        W --\> X[SamToFastq]
+        X --\> Y["Cutadapt (optional)"]
+        X --\> Z["BWA realignment (duplex)"]
+        Y --\> Z
+
+
+        %% Merge paths
+        Z --\> AA[Pre-BQSR BAM]
+        N --\> AA 
+        P --\> AA
+
+        %% QC before BQSR
+        AA --\> AB["QC (pre-BQSR)"]
+
+
+        %% BQSR
+        AA --\> AC{Run BQSR?}
+        AC --\>|Yes| AD[BaseRecalibrator]
+        AD --\> AE[ApplyBQSR]
+        AE --\> AF["QC (post-BQSR)"]
+        AC --\>|No| AG[Final BAM]
+        AE --\> AG
+
+        AG --\> AH[Outputs: BAM + QC + Metrics]
+        AB --\> AH
+        AF --\> AH
+        Q --\> AH
+        C --\> AH
+
+-->
+
+[![](https://mermaid.ink/img/pako:eNp9Ve1O2zAUfRXLElKnFdQWaKE_NjkpLQwKlJQxcPlhGtNGJHbmOGNdx989wB5xT7JrO6FNmdZKVW_Oufce3w9niacy5LiLH2P5PJ0zpdG4NxHui-BD6IlIc436JBiPMvQeDblmIdPsHm1vf0Ae9RVnmqNskcSReMrunZtnUZ9OcJ9leuSjmmLPCKhh9m6C79czOGrPUE0O9OfXb5R7ZIhqj7OHSELKy2jKVLjp17N-RzSYMq25QvIb_FjHDM4RZhXykSX3acCSsTSSvhZC-xYY0LGKkgGLpeIV4Bhk-bk5capRTaY6koLFm1IGlntCAx7zqUYaYiU8dDUrwh07yrqXy_CJejcEkTiaiYQLbSrM1JORk0RiVnifOKozPlnjlAbmmAgOXD3qqYXP6JCrGbdwEbOXpzFUUvOySWeWeU4DCW0HYiXM1ha6Hp6gB8XEdL4e-WJpnnPBHmIefnxx0IWBft7y7Ce6pIBvs2em-L_TXtowI0NDI38zqaHz75W8a8GDZYFv5A9WlDG0bO3sNSFRyMM8dU0z5LEVcE0HSubplZlJbwFiCvTaop-pz-K4VONLkXGR5Rmy9IL52TJvIJ-tYO1rztVCsISvUt1Yype3c_fFArf_Ga8V6w5YZkhgfV7HpBZaZSvqraNuVNMVImV6nrlnd5ZGCL1UfNsbBVdF4w12XmBovU-EVALCKj_wR1gTZJyLO4I4pgc6zaqnRehS3Iamt47-8ioX9nnZT-KvGkp61GMZv-JTOD7MhZaqEEzcHUCOKEnTeGEClIhbeNIvJclMVzS9pjiXkGFA-xEU_s0SlGEGlYdu3ckxvcg13I1Z1_jBkkEiez-qaFqOCPEKbmH2K-aoYvmvlvniOp6pKMRdrXJexwlXCTMmXtqSYj3nCZ_gLvwNYcsmeCJewCdl4k7KpHSDCZ_NcfeRxRlYeQo3N-9FbKbYisJFyJUvc6Fxd393r22D4O4Sf8fd5l5np723d9DYP2wctBq7zVYdL4B2uNPpNNq7nf1mq9XoNHZf6viHTdvcOei02odtIHfahwedZh3zMIKWDd17xr5uXv4CRrzlLg?type=png)](https://mermaid.ai/live/edit#pako:eNp9Ve1O2zAUfRXLElKnFdQWaKE_NjkpLQwKlJQxcPlhGtNGJHbmOGNdx989wB5xT7JrO6FNmdZKVW_Oufce3w9niacy5LiLH2P5PJ0zpdG4NxHui-BD6IlIc436JBiPMvQeDblmIdPsHm1vf0Ae9RVnmqNskcSReMrunZtnUZ9OcJ9leuSjmmLPCKhh9m6C79czOGrPUE0O9OfXb5R7ZIhqj7OHSELKy2jKVLjp17N-RzSYMq25QvIb_FjHDM4RZhXykSX3acCSsTSSvhZC-xYY0LGKkgGLpeIV4Bhk-bk5capRTaY6koLFm1IGlntCAx7zqUYaYiU8dDUrwh07yrqXy_CJejcEkTiaiYQLbSrM1JORk0RiVnifOKozPlnjlAbmmAgOXD3qqYXP6JCrGbdwEbOXpzFUUvOySWeWeU4DCW0HYiXM1ha6Hp6gB8XEdL4e-WJpnnPBHmIefnxx0IWBft7y7Ce6pIBvs2em-L_TXtowI0NDI38zqaHz75W8a8GDZYFv5A9WlDG0bO3sNSFRyMM8dU0z5LEVcE0HSubplZlJbwFiCvTaop-pz-K4VONLkXGR5Rmy9IL52TJvIJ-tYO1rztVCsISvUt1Yype3c_fFArf_Ga8V6w5YZkhgfV7HpBZaZSvqraNuVNMVImV6nrlnd5ZGCL1UfNsbBVdF4w12XmBovU-EVALCKj_wR1gTZJyLO4I4pgc6zaqnRehS3Iamt47-8ioX9nnZT-KvGkp61GMZv-JTOD7MhZaqEEzcHUCOKEnTeGEClIhbeNIvJclMVzS9pjiXkGFA-xEU_s0SlGEGlYdu3ckxvcg13I1Z1_jBkkEiez-qaFqOCPEKbmH2K-aoYvmvlvniOp6pKMRdrXJexwlXCTMmXtqSYj3nCZ_gLvwNYcsmeCJewCdl4k7KpHSDCZ_NcfeRxRlYeQo3N-9FbKbYisJFyJUvc6Fxd393r22D4O4Sf8fd5l5np723d9DYP2wctBq7zVYdL4B2uNPpNNq7nf1mq9XoNHZf6viHTdvcOei02odtIHfahwedZh3zMIKWDd17xr5uXv4CRrzlLg)
 
 
 ### BamToVariantsWorkFlow
@@ -16,6 +83,37 @@ Shown in the example below
 Two workflows a generic germline workflow and a somatic workflow. The somatic workflow is subdivided into freebayes, MuTect2 (gatk4) and LoFreq.
 
 Germline 
+
+<!--
+    The workflow should look like:
+        flowchart TD
+
+        %% INPUT
+        A[Input: SampleConfig + Reference + TargetIntervals]
+
+        %% PREPARE BAMS
+        A --\> B{Scatter samples}
+        B --\> C[Link BAM]
+        B --\> D[Link BAI]
+
+        %% HAPLOTYPECALLER PER SAMPLE + INTERVAL
+        C --\> E{Scatter target intervals}
+        D --\> E
+
+        E --\> F["HaplotypeCaller (GVCF mode)"]
+
+        %% MERGE PER SAMPLE
+        F --\> G[CombineGVCFs per sample]
+
+        %% MERGE ALL SAMPLES
+        G --\> H["CombineGVCFs (all samples)"]
+
+        %% GENOTYPING
+        H --\> I[GenotypeGVCFs]
+
+        %% OUTPUT
+        I --\> J[Final Outputs:\n- Project GVCF\n- Final VCF]
+-->
 
 [![](https://mermaid.ink/img/pako:eNpVUluPojAU_itNk0lms2pAvCAPmyBWZINKkJlkl_rQlarsQEtK2d1Z43-fUoe5PJCcc_huPe0FHnhGoQOPBf97OBMhQbLADLO7OxBsoocEMzcNWNVIB-xIWRXU4-yYn8BXENMjFZQdqKoTIk5UBkxS8YcU9f5VIYpR5MYIzN31TgmBfv8bmF92ByIVENRar75iNtd_vDTM2VML3nejRTcKOsmVG4Xb5EeEPDcMUQwi9e3cdRQiFSPYJCh-dEPMPE1Hb15SBwR5l1CZLm6QVhfpcpliuCJVweVzRT1SFIp37z96S1CqHX3BsMuwRrGPPjhjttQCfurx8lfOaEuqQfV2xs9EFfyVqJbia-ZKWX_i3iv7bkEfnH20aQ8fbHzMVpoZpD5lOrEmdsDtQ6IvL9Cg7-kyZ6QA20aqm6wdjFkfRIL_pgcJWp4e3DCq28MePIk8g44UDe3BkoqStC28YAYAhvJMS4qho8qMiCcMMbsqTkXYT87LjiZ4czpD56jWrbqmyoiki5ycBHmHUJZR4fGGSeiY9mSkRaBzgf-gY9mzwcy0xqZhTe3h2LR68FmhLHNgTQ1jYpjDkWWMTfvag_-1rTGYju3J2JoNDWs0MUZDuwdplksu1rdHrt_69QU6eeoF?type=png)](https://mermaid.ai/live/edit#pako:eNpVUluPojAU_itNk0lms2pAvCAPmyBWZINKkJlkl_rQlarsQEtK2d1Z43-fUoe5PJCcc_huPe0FHnhGoQOPBf97OBMhQbLADLO7OxBsoocEMzcNWNVIB-xIWRXU4-yYn8BXENMjFZQdqKoTIk5UBkxS8YcU9f5VIYpR5MYIzN31TgmBfv8bmF92ByIVENRar75iNtd_vDTM2VML3nejRTcKOsmVG4Xb5EeEPDcMUQwi9e3cdRQiFSPYJCh-dEPMPE1Hb15SBwR5l1CZLm6QVhfpcpliuCJVweVzRT1SFIp37z96S1CqHX3BsMuwRrGPPjhjttQCfurx8lfOaEuqQfV2xs9EFfyVqJbia-ZKWX_i3iv7bkEfnH20aQ8fbHzMVpoZpD5lOrEmdsDtQ6IvL9Cg7-kyZ6QA20aqm6wdjFkfRIL_pgcJWp4e3DCq28MePIk8g44UDe3BkoqStC28YAYAhvJMS4qho8qMiCcMMbsqTkXYT87LjiZ4czpD56jWrbqmyoiki5ycBHmHUJZR4fGGSeiY9mSkRaBzgf-gY9mzwcy0xqZhTe3h2LR68FmhLHNgTQ1jYpjDkWWMTfvag_-1rTGYju3J2JoNDWs0MUZDuwdplksu1rdHrt_69QU6eeoF)
 
@@ -26,6 +124,7 @@ Germline
 - [x] is to get generic alignment working.
 - [x] basic variant calling (haplotypecallerGvcf).
 - [x] somatic variant calling(MuTect2,...).
+- [x] Runs on software installed with Easybuild
 - [ ] ichorCNA integration.
 - [x] Variant annotation (vep)
 - [ ] Functional filtering of vcfs
@@ -83,7 +182,8 @@ fastq folders (example based on `tests/integration/run_local.sh`):
 
 ### How to install
 
-easybuild the required modules or use future wrapper module
+Easybuild the required modules or use future wrapper easybuild module. 
+
 
 ### Used tools and databases 
 

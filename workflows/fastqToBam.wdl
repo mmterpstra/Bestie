@@ -396,7 +396,7 @@ workflow FastqToBam {
     File prebqsrBam = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bam,duplicateMarkedBam]) else duplicateMarkedBam
     File prebqsrBai = if(runTwistUmiSample && runDuplexConsensus) then select_first([bwaDuplexConsensusAlignment.bai,duplicateMarkedBai]) else duplicateMarkedBai
 
-    call qc.bamQualityControl as bamQualityPreBqsr {
+    call qc.bamQualityControl as bamQualityControlPreBqsr {
         input:
         gatkModule = gatkModule,
         picardModule = picardModule,
@@ -464,7 +464,7 @@ workflow FastqToBam {
           "index" : bai 
         }
         
-        File qcZip = bamQualityPreBqsr.qcZip
+        File qcZip = bamQualityControlPreBqsr.qcZip
         File? preUmiQcZip = bamQualityControlUnMarked.qcZip
         File? umiQcZip = bamUmiQualityControl.qcZip
         File? bqsrQcZip = recalibratedBamQualityControl.qcZip
