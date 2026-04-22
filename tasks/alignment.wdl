@@ -325,7 +325,12 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
             --ubam-out True \
             --fastq ~{cutadaptFastq1} \
             ~{"--fastq " + cutadaptFastq2}   
-        ) > unaligned_fifo.bam &
+        ) | \
+        (
+            #if the data has a LOT of reads mapping to a limited size like in the test panel this can ramp up 
+            ml load ~{picardModule} && \
+            java -Xms1500m -Xmx1500m  -jar $EBROOTPICARD/picard.jar FifoBuffer 
+        )> unaligned_fifo.bam &
 
 
         (   
@@ -354,7 +359,7 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
         (
             #if the data has a LOT of reads mapping to a limited size like in the test panel this can ramp up 
             ml load ~{picardModule} && \
-            java -Xms3500m -Xmx3500m  -jar $EBROOTPICARD/picard.jar FifoBuffer 
+            java -Xms1500m -Xmx1500m  -jar $EBROOTPICARD/picard.jar FifoBuffer 
         ) | \
         (
             sleep 10 && ml load ~{bwaModule} && \

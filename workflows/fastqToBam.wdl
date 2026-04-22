@@ -104,35 +104,42 @@ workflow FastqToBam {
             #outputs ubamToSortedFastq.fastq1gz and select_first(ubamToSortedFastq.fastq2gz)
             File ubam = fastqToUbams.ubams[scatteredUbamsIdx]
             
-            call picard.SamToFastq as ubamToSortedFastq {
-                input:
-                    inputBam = ubam,
-                    picardModule = picardModule,
-                    outputFastqDirBase = 'shard' + scatteredUbamsIdx + "run" +rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane 
-            }
-            call trimgalore.TrimGalore as adaptertrim {
-                input:
-                    inputFastq1 = ubamToSortedFastq.fastq1gz,
-                    inputFastq2 = select_first([ubamToSortedFastq.fastq2gz]),
-                    minimumLength = 0,
-                    outputFastq1 = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_trim_R1.fastq.gz",
-                    outputFastq2 = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_trim_R2.fastq.gz",
-                    memoryGb = 1,
-                    trimgaloreModule = trimgaloreModule
+            if(! runCutadaptSample) {
+                call picard.SamToFastq as ubamToSortedFastq {
+                    input:
+                        inputBam = ubam,
+                        picardModule = picardModule,
+                        outputFastqDirBase = 'shard' + scatteredUbamsIdx + "run" +rg.run + "_" + rg.flowcell  + "_" + rg.barcode1 + "+" + select_first([rg.barcode2,'AAAAAA']) + "." + rg.lane 
+                }
+                call trimgalore.TrimGalore as adaptertrim {
+                    input:
+                        inputFastq1 = ubamToSortedFastq.fastq1gz,
+                        inputFastq2 = select_first([ubamToSortedFastq.fastq2gz]),
+                        minimumLength = 0,
+                        outputFastq1 = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_trim_R1.fastq.gz",
+                        outputFastq2 = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_trim_R2.fastq.gz",
+                        memoryGb = 1,
+                        trimgaloreModule = trimgaloreModule
+                }
             }
             if(runCutadaptSample) {
-                call cutadapt.Cutadapt as cutadaptPe {
+                call cutadapt.CutadaptUbam as cutadaptPe {
                     input:
                         cutadaptModule = cutadaptModule,
+                        picardModule = picardModule,
+                        samtoolsModule = samtoolsModule,
                         minimumLength = 0,
-                        inputFastq1 = ubamToSortedFastq.fastq1gz,
+                        inputUbam = ubam,
                         outputFastq1 = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R1.fastq.gz",
-                        inputFastq2 = select_first([ubamToSortedFastq.fastq2gz]),
                         outputFastq2 = 'shard' + scatteredUbamsIdx + 'sample' + sample.name + "_" + rg.flowcell + "_L" + rg.lane + "_" + rg.identifier + "_cutadapt_R2.fastq.gz",
                         read1Adapters = read1Adapters,
                         read2Adapters = read2Adapters
                 }                
             }
+
+            File trimmedFastq1=if(runCutadaptSample) then select_first([cutadaptPe.fastq1,adaptertrim.fastq1]) else select_first([adaptertrim.fastq1,cutadaptPe.fastq1])
+            File trimmedFastq2=if(runCutadaptSample) then select_first([cutadaptPe.fastq2,adaptertrim.fastq2]) else select_first([adaptertrim.fastq2,cutadaptPe.fastq2])
+
             #call marktrim.MarkTrimming as markTrimming {
             #    input:
             #        marktrimmingModule = marktrimmingModule,
@@ -207,89 +214,40 @@ workflow FastqToBam {
         }
     }
     #remove pcr duplicates // optical
-    #naive markdups
-    call picard.MarkDuplicates as markDups {
+    
+    if(runTwistUmiSample){
+        String barcodeTag = "RX"
+        Boolean duplexUMI = true
+    }
+    call picard.SortedMarkDuplicates as sortedMarkDups {
         input:
+            barcodeTag = barcodeTag,
+            duplexUMI = duplexUMI,
             picardModule = picardModule,
             removeDuplicates = removeDuplicates,
             inputBams = flatten(bwaAlignment.bam),
-            outputBamBasename = sample.name + '_markdup',
-            outputMetrics = sample.name + '.markdup_metrics'
+            outputBamBasename = sample.name + '_sort_markdup_umi',
+            outputMetrics = sample.name + '.sort_markdup_umi_metrics'
     }
-    #sort bam by coordinate order
-    call picard.SortSam as sortBam {
-        input: 
+    #
+    call qc.bamQualityControl as bamUmiQualityControl {
+        input:
+            gatkModule = gatkModule,
             picardModule = picardModule,
-            inputBam = markDups.bam,
-            outputBamBasename = sample.name + '_markdup_sort'
-            
+            fgbioModule = fgbioModule,
+            samtoolsModule = samtoolsModule,
+            reference = reference,
+            inputBam = sortedMarkDups.bam,
+            inputBai = select_first([sortedMarkDups.bai]),
+            outputPrefix =  sample.name + '_markdup_umi_sort_qc',
+            targetIntervalList = targetIntervalList,
+            commonVariants = select_first(knownSites),
+            byReadGroup = true
     }
+    
 
-    #call qc.bamQualityControl as bamQualityControl {
-    #    input:
-    #        gatkModule = gatkModule,
-    #        picardModule = picardModule,
-    #        fgbioModule = fgbioModule,
-    #        samtoolsModule = samtoolsModule,
-    #        reference = reference,
-    #        inputBam = sortBam.bam,
-    #        inputBai = select_first([sortBam.bai]),
-    #        outputPrefix =  sample.name + '_markdup_sort_qc',
-    #        targetIntervalList = targetIntervalList,
-    #        commonVariants = select_first(knownSites),
-    #        byReadGroup = true
-    #}
-
-    #runs basicUmiAwareMarkDups
-    if (runTwistUmiSample) {
-        #call picard.UmiAwareMarkDuplicatesWithMateCigar as markDupsUmi {
-        #    input:
-        #        picardModule = picardModule,
-        #        inputBams = flatten(removeNumis.bam),
-        #        removeDuplicates = removeDuplicates,
-        #        outputBamBasename = sample.name + '_markdup_umi',
-        #        outputMetrics = sample.name + '.markdup_umi_metrics',
-        #        outputUMIMetrics = sample.name + '.markdup_umi_umi_metrics'
-        #}
-
-        #call picard.MarkDuplicates as markDupsDefaultUmi {
-        #    input:
-        #        barcodeTag = "RX",
-        #        picardModule = picardModule,
-        #        removeDuplicates = removeDuplicates,
-        #        inputBams = flatten(removeNumis.bam),
-        #        outputBamBasename = sample.name + '_markdup_umi',
-        #        outputMetrics = sample.name + '.markdup_umi_metrics'
-        #}
-        call picard.SortedMarkDuplicates as sortedMarkDupsDefaultUmi {
-            input:
-                barcodeTag = "RX",
-                duplexUMI = true,
-                picardModule = picardModule,
-                removeDuplicates = removeDuplicates,
-                inputBams = flatten(bwaAlignment.bam),
-                outputBamBasename = sample.name + '_sort_markdup_umi',
-                outputMetrics = sample.name + '.sort_markdup_umi_metrics'
-        }
-        #
-        call qc.bamQualityControl as bamUmiQualityControl {
-            input:
-                gatkModule = gatkModule,
-                picardModule = picardModule,
-                fgbioModule = fgbioModule,
-                samtoolsModule = samtoolsModule,
-                reference = reference,
-                inputBam = sortedMarkDupsDefaultUmi.bam,
-                inputBai = select_first([sortedMarkDupsDefaultUmi.bai]),
-                outputPrefix =  sample.name + '_markdup_umi_sort_qc',
-                targetIntervalList = targetIntervalList,
-                commonVariants = select_first(knownSites),
-                byReadGroup = true
-        }
-    }
-
-    File duplicateMarkedBam = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bam,sortBam.bam]) else sortBam.bam
-    File duplicateMarkedBai = if(runTwistUmiSample) then select_first([sortedMarkDupsDefaultUmi.bai,sortBam.bai]) else select_first([sortBam.bai])
+    File duplicateMarkedBam = sortedMarkDups.bam
+    File duplicateMarkedBai = sortedMarkDups.bai
     #runs Duplexconsensus Pipeline
 
     if(runTwistUmiSample && runDuplexConsensus){
@@ -454,10 +412,10 @@ workflow FastqToBam {
     output {
         Array [File] fastqcZip = fastqc.zip
         #cutadapt logs
-        Array [File?] cutadaptLogs = select_all(flatten(cutadaptPe.fastq1Log))
+        Array [File?] cutadaptLogs = select_all(flatten([flatten(cutadaptPe.fastq1Log),[cutadaptDuplexPe.fastq1Log]]))
         Array [File?] cutadaptFastqcZip = select_all(flatten([fastqcCutadapt_1.zip,fastqcCutadapt_2.zip]))
         #markduplicates logs
-        File markdupLog = markDups.metrics
+        File markdupLog = sortedMarkDups.metrics
         #bam output
         IndexedFile bam = {
           "file" : bam,

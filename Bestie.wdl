@@ -85,7 +85,6 @@ workflow FastqToVariants {
                 gatkModule = gatkModule,
                 samtoolsModule = samtoolsModule,
                 fgbioModule = fgbioModule,
-                runCutadapt = runCutadapt,
                 cutadaptModule = cutadaptModule,
                 marktrimmingModule = marktrimmingModule,
                 removeDuplicates = removeDuplicates,
@@ -155,6 +154,12 @@ workflow FastqToVariants {
         #}
 
     }
+
+    SampleConfig outputSampleConfig = {
+        "samples" : sampleNew,
+        "genomicVariants" : sampleConfig.genomicVariants,
+        "somaticVariants" : sampleConfig.somaticVariants
+    } 
     #run multiqc to bundle outputs
     Array[File] files = flatten(
         flatten(
@@ -167,14 +172,39 @@ workflow FastqToVariants {
             ]
         )
     )
+
+
     Array[File?] optionalPerSampleFiles = flatten([select_all(fqToBam.umiQcZip),select_all(fqToBam.preUmiQcZip),select_all(fqToBam.bqsrQcZip),select_all(fqToBam.umiFamilySizeHistogram)])
     Array[File?] optionalPerReadgroupFiles = select_all(flatten(fqToBam.cutadaptLogs))
     # add fqToBam.fastqcZip or not???
     Array[File?] optionalFiles = select_all(flatten([optionalPerSampleFiles,optionalPerReadgroupFiles]))
+
+    #there is no official way to change booleans to string in 1.0
+    String runCutadaptStr = if (runCutadapt) then "runCutadapt = true" else "runCutadapt = false"
+    String removeDuplicatesStr = if (removeDuplicates) then "removeDuplicates = true" else "removeDuplicates = false"
+    String runDuplexConsensusStr = if (runDuplexConsensus) then "runDuplexConsensus = true" else "runDuplexConsensus = false"
+    String runBaseQualityRecalibrationStr = if (runBaseQualityRecalibration) then "runBaseQualityRecalibration = true" else "runBaseQualityRecalibration = false"
+    String runTwistUmiStr = if (runTwistUmi) then "runTwistUmi = true" else "runTwistUmi = false"
+    String referenceFastaStr = "referenceFasta = " + reference.fasta
+    String read1AdaptersStr = "read1Adapters = " + select_first(flatten([read1Adapters,["undef"]]))
+    String read2AdaptersStr ="read2Adapters = " + select_first(flatten([read2Adapters,["undef"]]))
+
     call multiqc.MultiQC as multiqc {
             input:
                 multiqcModule = multiqcModule,
                 files = files,
+                moduleLog=checkModules.moduleLog,
+                configSettings = [
+                    runCutadaptStr ,
+                    removeDuplicatesStr,
+                    runDuplexConsensusStr,
+                    read1AdaptersStr,
+                    read2AdaptersStr,
+                    runBaseQualityRecalibrationStr ,
+                    referenceFastaStr,
+                    runTwistUmiStr,
+                ],
+                sampleConfig=outputSampleConfig,
                 prefix = "project_multiqc",
                 #This might be a miss on mixed data so try to include a file 'fqToBam.qcZip' to make it work (hopefully).
                 optionalFiles = optionalFiles

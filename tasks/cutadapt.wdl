@@ -9,6 +9,7 @@ task Cutadapt {
         Int minimumLength = 15
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
+        Int threads = 1
         Int? memoryGb = 1
         Int timeMinutes = 1 + ceil(size(inputFastq1, "G")) * 30
         #File? fastq_input_umi
@@ -22,7 +23,7 @@ task Cutadapt {
         if [ "${inputFastq2}x" == "x" ];then \
             cutadapt \
                 --minimum-length ~{minimumLength} \
-                -j 1 -e 0.1 -q 20 -O 1 \
+                -j ~{threads} -e 0.1 -q 20 -O 1 \
                 -a ~{sep=' -a ' read1Adapters} \
                 --output ~{outputFastq1} \
                 ~{inputFastq1} \
@@ -35,7 +36,7 @@ task Cutadapt {
         else \
             cutadapt \
                 --minimum-length ~{minimumLength} \
-                -j 1 -e 0.1 -q 20 -O 1 \
+                -j ~{threads} -e 0.1 -q 20 -O 1 \
                 -a ~{sep=' -a ' read1Adapters} \
                 -A ~{sep=' -A ' read2Adapters} \
                 --output ~{outputFastq1} \
@@ -62,6 +63,7 @@ task Cutadapt {
     runtime {
         memory: select_first([memoryGb * 1024,1024])
         timeMinutes: timeMinutes
+        cpus: threads
     }
 }
 
@@ -73,7 +75,8 @@ task CutadaptUbam {
         Int minimumLength = 15
         Int baseQuality = 10
         Int minAdapterOverlap = 1
-        Int threads = 1
+        Int threads = 4
+        Int compressionLevel = 1
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Int? memoryGb = 4
@@ -86,6 +89,7 @@ task CutadaptUbam {
         #String identifier
 	    String cutadaptModule
         String picardModule
+        String samtoolsModule
     }
     command {
         set -e 
@@ -93,16 +97,21 @@ task CutadaptUbam {
 
         echo "time: "~{timeMinutes}";disk:"~{disk}
         #intermediate output file removal or storage on $TMP_DIR
-        java -Xmx~{javaXmxMemoryMb}m \
-            -jar $EBROOTPICARD/picard.jar SamToFastq \
-            INPUT=~{inputUbam} \
-            OUTPUT_PER_RG=false \
-            --FASTQ ~{outputFastq1}.tmp_1.fastq.gz \
-            ~{ "--SECOND_END_FASTQ " + outputFastq2 + ".tmp_2.fastq.gz"}
+        (   
+            module load ~{samtoolsModule} && \
+            samtools view -ubh --threads ~{threads} ~{inputUbam}) | \
+        (
+            module load ~{picardModule} && \
+            java -Xmx~{javaXmxMemoryMb}m \
+                -jar $EBROOTPICARD/picard.jar SamToFastq \
+                INPUT=/dev/stdin \
+                COMPRESSION_LEVEL=~{compressionLevel} \
+                FASTQ="$TMPDIR/~{outputFastq1}.tmp_1.fastq.gz" \
+                ~{ "SECOND_END_FASTQ=\"$TMPDIR/" + outputFastq2 + ".tmp_2.fastq.gz\""}
+        )
+        module load ~{cutadaptModule}
 
-        module load ${cutadaptModule}
-
-        if [ -e ~{outputFastq2}".tmp_2.fastq.gz" ];then \
+        if [ ! -e "$TMPDIR/~{outputFastq2}.tmp_2.fastq.gz" ]; then \
             cutadapt \
                 --minimum-length ~{minimumLength} \
                 -j ~{threads} \
@@ -111,7 +120,7 @@ task CutadaptUbam {
                 -O ~{minAdapterOverlap} \
                 -a ~{sep=' -a ' read1Adapters} \
                 --output ~{outputFastq1} \
-                ~{outputFastq1}.tmp_1.fastq.gz \
+                "$TMPDIR/~{outputFastq1}.tmp_1.fastq.gz" \
                 &>  ~{outputFastq1}"_trimming_report.txt"
         else \
             cutadapt \
@@ -124,14 +133,14 @@ task CutadaptUbam {
                 -A ~{sep=' -A ' read2Adapters} \
                 --output ~{outputFastq1} \
                 --paired-output ~{outputFastq2} \
-                ~{outputFastq1}.tmp_1.fastq.gz \
-                ~{outputFastq2}.tmp_2.fastq.gz \
+                "$TMPDIR/~{outputFastq1}.tmp_1.fastq.gz" \
+                "$TMPDIR/~{outputFastq2}.tmp_2.fastq.gz" \
                 &>  ~{outputFastq1}"_trimming_report.txt"
 
-                rm -v ~{outputFastq2}.tmp_2.fastq.gz
+                rm -v "$TMPDIR/~{outputFastq2}.tmp_2.fastq.gz"
         fi
 
-        rm -v ~{outputFastq1}.tmp_1.fastq.gz
+        rm -v "$TMPDIR/~{outputFastq1}.tmp_1.fastq.gz"
     }
 
     output {
@@ -143,5 +152,7 @@ task CutadaptUbam {
     runtime {
         memory: select_first([memoryGb * 1024,1024])
         timeMinutes: timeMinutes
+        cpus: threads
+        disk: disk
     }
 }
