@@ -32,7 +32,7 @@ workflow FastqToBam {
         Array[String] read1Adapters = ["AGATCGGAAGAGC"]
         Array[String] read2Adapters = ["AGATCGGAAGAGC"]
         Boolean runTwistUmi = false
-        Boolean mergeBamFilesCoordinateSort = false
+        Boolean mergeBamFilesCoordinateSort = true
         Boolean runDuplexConsensus = false
         Boolean runBaseQualityRecalibration = true
         Reference reference

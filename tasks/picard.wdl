@@ -199,12 +199,12 @@ task SortedMarkDuplicates {
         ml ~{picardModule}
         
         #multiqc handles this filename better
-
+        if 
         java -Xmx1000m -jar $EBROOTPICARD/picard.jar \
             MergeSamFiles \
             INPUT=~{sep=' INPUT=' inputBams} \
             OUTPUT=$TMPDIR/~{outputBamBasename}_umitagged.bam \
-            SORT_ORDER=queryname \
+            SORT_ORDER=coordinate \
             COMPRESSION_LEVEL=0
 
         java -Xmx~{javaXmxMemoryMb}m -jar $EBROOTPICARD/picard.jar \
@@ -215,7 +215,7 @@ task SortedMarkDuplicates {
             CLEAR_DT="false" \
             ADD_PG_TAG_TO_READS=false \
             COMPRESSION_LEVEL=0 \
-            BARCODE_TAG="~{barcodeTag}" \
+            ~{ "BARCODE_TAG=\""+barcodeTag+"\"" } \
             DUPLEX_UMI=~{duplexUMI} \
             REMOVE_DUPLICATES=~{removeDuplicates} \
             OUTPUT=$TMPDIR/~{outputBamBasename}_markdup_umi.bam 

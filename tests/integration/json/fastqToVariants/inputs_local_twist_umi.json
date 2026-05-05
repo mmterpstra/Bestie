@@ -2,7 +2,7 @@
     "FastqToVariants.sampleJson": "samples.json",
     "FastqToVariants.fastqcModule": "FastQC/0.12.1-Java-11-LTS",
     "FastqToVariants.trimgaloreModule": "TrimGalore/0.6.7-GCCcore-11.3.0",
-    "FastqToVariants.multiqcModule": "multiqc/1.22.3-GCCcore-11.3.0",
+    "FastqToVariants.multiqcModule": "MultiQC/1.28-foss-2024a",
     "FastqToVariants.bwaModule": "BWA/0.7.17-GCCcore-11.3.0",
     "FastqToVariants.picardModule": "picard/2.26.10-Java-15",
     "FastqToVariants.gatkModule": "R/4.2.2-foss-2022a GATK/4.3.0.0-GCCcore-11.3.0-Java-11",

@@ -154,12 +154,12 @@ workflow FastqToVariants {
         #}
 
     }
-
-    SampleConfig outputSampleConfig = {
-        "samples" : sampleNew,
-        "genomicVariants" : sampleConfig.genomicVariants,
-        "somaticVariants" : sampleConfig.somaticVariants
-    } 
+    #this does not work...
+    #SampleConfig outputSampleConfig = {
+    #    "samples" : sampleNew,
+    #    "genomicVariants" : sampleConfig.genomicVariants,
+    #    "somaticVariants" : sampleConfig.somaticVariants
+    #} 
     #run multiqc to bundle outputs
     Array[File] files = flatten(
         flatten(
@@ -204,7 +204,7 @@ workflow FastqToVariants {
                     referenceFastaStr,
                     runTwistUmiStr,
                 ],
-                sampleConfig=outputSampleConfig,
+                samples=sampleNew,
                 prefix = "project_multiqc",
                 #This might be a miss on mixed data so try to include a file 'fqToBam.qcZip' to make it work (hopefully).
                 optionalFiles = optionalFiles

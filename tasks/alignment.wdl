@@ -412,7 +412,7 @@ task bwaMarktrimmingAlignBamSamtoolsCompression {
         ) 
         #) | \
         #(   module load ~{samtoolsModule} && \
-        #    samtools view -bh --fast --threads 3 /dev/stdin > ~{outputBamBasename}.bam
+        #    samtools view -bh --fast --threads 10 /dev/stdin --write-index --output ~{outputBamBasename}.bam
         #)
         wait
 

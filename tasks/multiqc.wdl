@@ -8,7 +8,7 @@ task MultiQC {
         Array[File?] optionalFiles
         Array[String] configSettings = ["config settings"]
         File moduleLog
-        SampleConfig sampleConfig
+        Array[SampleDescriptor] samples
         String prefix = "multiqc"
         #Scales badly might be a multiple of files
         Int? memoryGb = 8
@@ -27,27 +27,27 @@ task MultiQC {
             echo "intro_text: 'The conversion of the fastq files to variant call ready bam files with tools, versions and settings shown below' "
             echo 'report_header_info:' 
             echo "- 'Used modules' : ''" 
-            cat ~{moduleLog} | python3 -c "import sys; [ print('- \'\': \''+line.rstrip()+'\'' ) for count,line in enumerate(sys.stdin)]"  
+            cat ~{moduleLog} | \
+                grep -v 'Testing\|\-\-\-\-\|Where\|Default Module\|^$' | \
+                python3 -c "import sys; [ print('- \'\': \''+line.rstrip()+'\'' ) for count,line in enumerate(sys.stdin)]"  
             echo "- '' : ''" 
             echo "- 'Used settings' : ''" 
             cat ~{write_lines(select_all(configSettings))}| \
-                grep -v 'Testing\|----\|Where\|Default Module' |\
                 python3 -c "import sys; [ print('- \'\': \''+line.rstrip()+'\'' ) for count,line in enumerate(sys.stdin)]"  
             echo "- '' : ''" 
-            echo "- Sample settings : \|"
-            cat <<- SAMPLEJSONHEADER
-            This config was used for the sample specific settings.
-
-            ```json
-            SAMPLEJSONHEADER
-            cat ~{write_json(sampleConfig)}
-            echo '```'
-            echo '``'
-
-            echo "- '': 'For details about the used tools reference the readme https://github.com/mmterpstra/Bestie/blob/develop/README.md'"
-
-            echo "- Readme : ''"
-            echo "- '': 'For details about the used tools reference the readme https://github.com/mmterpstra/Bestie/blob/develop/README.md'"
+            echo "- 'Readme' : ''"
+            echo "- '': 'For details about the used tools reference the readme at: https://github.com/mmterpstra/Bestie/blob/develop/README.md'"
+                        echo "- '' : ''" 
+            echo "- 'Sample settings' : |"
+            cat << 'SAMPLEJSONHEADER'
+        <br>This config was used for the sample specific settings.<br>
+      
+        
+SAMPLEJSONHEADER
+            cat ~{write_json(samples)} | jq | \
+                python3 -c "import sys; [ print('           '+line.rstrip().replace(' ', '&nbsp;')+'<br>') for count,line in enumerate(sys.stdin)]"  
+            echo '        &nbsp;&nbsp;&nbsp;'
+            echo "- '' : ''" 
 
         ) >  "multiqc.yaml"
         #cat ~{write_lines(files)} > filelist.txt

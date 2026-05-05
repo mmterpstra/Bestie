@@ -554,7 +554,7 @@ sub AnnotateSamplesheet {
 			#unreadble code.I hope it works!
 			if($file =~ m/.txt.gz/){#This is very experimental should work for single end sequencing
 				$newSample -> {'reads1FqGz'} = $file;
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null| head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | perl -wne "print if $.%4 == 1 "|head -n 500000 | grep -P "#[ACGT]+/1$"| head -n 1 || cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | head -n 1 ');
 				my @fqheadsplit= split /[\/_\-: \@#]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
 				#@HWI-ST001_0001:1:1111:112345:12345#NNNNNN/1 for read end 1
@@ -572,7 +572,7 @@ sub AnnotateSamplesheet {
 				#@SEQUENCER:RUN:FLOWCELLID:TILE:TILELOC:TILELOC:TILELOC:UMI+UMI 1:N:0:BARCODE1+BARCODE2
 				#or older
 				#@SEQUENCER:RUN:FLOWCELLID:TILE:TILELOC:TILELOC:TILELOC 1:N:0:BARCODE1+BARCODE2
-				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | head -n 1');
+				my $fqhead;@{$fqhead} = CmdRunner('cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | perl -wne "print if $.%4 == 1 "|head -n 500000 | grep -P "N:[012]:[ACGT]+\+[ACGT]+$"| head -n 1 || cat '.$newSample -> {reads1FqGz}.' | gzip -qdc 2>/dev/null | head -n 1 ');
 				my @fqheadsplit = split /[: \@]/,($fqhead -> [0]);
 				chomp($fqheadsplit[-1]);
 				$newSample -> {'run'} = $fqheadsplit[2];
